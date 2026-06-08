@@ -12,7 +12,13 @@ sap.ui.define([
 
         onInit: function () {
             var oModel = new JSONModel({
+                modeKey: "create",
                 mode: "Create",
+                selectedGateEntryId: "",
+                gateEntries: [],
+                entryStatus: "",
+                isFormEditable: true,
+                showStatusHeader: false,
                 movementType: "I",
                 referenceType: "PO",
                 referenceNumber: "",
@@ -34,6 +40,7 @@ sap.ui.define([
                 poNo: ""
             });
             this.getView().setModel(oModel, "entry");
+            this._mGateEntryContexts = {};
 
             // Load PO mock data
             this._loadPOMockData();
@@ -63,11 +70,16 @@ sap.ui.define([
 
         _onRouteMatched: function () {
             this._clearForm();
+            this._applyModeState("create");
+            this._loadCreatedGateEntries();
         },
 
         _clearForm: function () {
             var oModel = this.getView().getModel("entry");
+            oModel.setProperty("/modeKey", "create");
             oModel.setProperty("/mode", "Create");
+            oModel.setProperty("/selectedGateEntryId", "");
+            oModel.setProperty("/entryStatus", "");
             oModel.setProperty("/movementType", "I");
             oModel.setProperty("/referenceType", "PO");
             oModel.setProperty("/referenceNumber", "");
@@ -87,6 +99,135 @@ sap.ui.define([
             oModel.setProperty("/entryTime", null);
             oModel.setProperty("/remarks", "");
             oModel.setProperty("/poNo", "");
+        },
+
+        _applyModeState: function (sModeKey) {
+            var oModel = this.getView().getModel("entry");
+            var mModeTitle = {
+                create: "Create",
+                change: "Change",
+                display: "Display",
+                cancel: "Cancel"
+            };
+            oModel.setProperty("/modeKey", sModeKey);
+            oModel.setProperty("/mode", mModeTitle[sModeKey] || "Create");
+            oModel.setProperty("/isFormEditable", sModeKey === "create" || sModeKey === "change");
+            oModel.setProperty("/showStatusHeader", sModeKey === "display");
+        },
+
+        onModeChange: function (oEvent) {
+            var sModeKey = oEvent.getParameter("item").getKey();
+            this._applyModeState(sModeKey);
+            if (sModeKey === "create") {
+                this._clearForm();
+                this._applyModeState("create");
+                return;
+            }
+            this.getView().getModel("entry").setProperty("/selectedGateEntryId", "");
+            this._clearEntryFields();
+            this._loadCreatedGateEntries();
+        },
+
+        _clearEntryFields: function () {
+            var oModel = this.getView().getModel("entry");
+            oModel.setProperty("/entryStatus", "");
+            oModel.setProperty("/movementType", "I");
+            oModel.setProperty("/referenceType", "PO");
+            oModel.setProperty("/referenceNumber", "");
+            oModel.setProperty("/plant", "");
+            oModel.setProperty("/partyNumber", "");
+            oModel.setProperty("/partyName", "");
+            oModel.setProperty("/vehicleNumber", "");
+            oModel.setProperty("/vehicleType", "");
+            oModel.setProperty("/transporterNumber", "");
+            oModel.setProperty("/transporterName", "");
+            oModel.setProperty("/driverName", "");
+            oModel.setProperty("/driverContact", "");
+            oModel.setProperty("/lrNumber", "");
+            oModel.setProperty("/gateEntryNumber", "");
+            oModel.setProperty("/gateEntryYear", new Date().getFullYear());
+            oModel.setProperty("/entryDate", new Date());
+            oModel.setProperty("/entryTime", null);
+            oModel.setProperty("/remarks", "");
+            oModel.setProperty("/poNo", "");
+        },
+
+        _loadCreatedGateEntries: function () {
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return Promise.resolve();
+            }
+            var oListBinding = oODataModel.bindList("/GateEntries", null, null, null, {
+                $filter: "entryStatus eq 'CREATED'"
+            });
+            return oListBinding.requestContexts(0, 500).then(function (aContexts) {
+                var aEntries = [];
+                this._mGateEntryContexts = {};
+                aContexts.forEach(function (oContext) {
+                    var oObject = oContext.getObject();
+                    if (oObject && oObject.ID) {
+                        this._mGateEntryContexts[oObject.ID] = oContext;
+                        aEntries.push(oObject);
+                    }
+                }.bind(this));
+                this.getView().getModel("entry").setProperty("/gateEntries", aEntries);
+            }.bind(this)).catch(function () {
+                MessageToast.show("Could not load Gate Entries");
+            });
+        },
+
+        onGateEntrySelect: function (oEvent) {
+            var oSource = oEvent.getSource ? oEvent.getSource() : null;
+            var sSelectedId = oEvent.getParameter("selectedItem")?.getKey() || (oSource && oSource.getSelectedKey ? oSource.getSelectedKey() : "");
+            if (!sSelectedId) {
+                return;
+            }
+            this.getView().getModel("entry").setProperty("/selectedGateEntryId", sSelectedId);
+            var oContext = this._mGateEntryContexts[sSelectedId];
+            if (!oContext) {
+                MessageBox.error("Selected Gate Entry could not be loaded");
+                return;
+            }
+            var oData = oContext.getObject();
+            var oModel = this.getView().getModel("entry");
+            oModel.setProperty("/entryStatus", oData.entryStatus || "");
+            oModel.setProperty("/movementType", oData.movementType || "I");
+            oModel.setProperty("/referenceType", oData.referenceType || (oData.movementType === "I" ? "PO" : "SI"));
+            oModel.setProperty("/referenceNumber", oData.referenceNumber || "");
+            oModel.setProperty("/plant", oData.plant || "");
+            oModel.setProperty("/partyNumber", oData.partyNumber || "");
+            oModel.setProperty("/partyName", oData.partyName || "");
+            oModel.setProperty("/vehicleNumber", oData.vehicleNumber || "");
+            oModel.setProperty("/vehicleType", oData.vehicleType || "");
+            oModel.setProperty("/transporterNumber", oData.transporterNumber || "");
+            oModel.setProperty("/transporterName", oData.transporterName || "");
+            oModel.setProperty("/driverName", oData.driverName || "");
+            oModel.setProperty("/driverContact", oData.driverContact || "");
+            oModel.setProperty("/lrNumber", oData.lrNumber || "");
+            oModel.setProperty("/gateEntryNumber", oData.gateEntryNumber || "");
+            oModel.setProperty("/gateEntryYear", oData.gateEntryYear || new Date().getFullYear());
+            oModel.setProperty("/entryDate", oData.entryDate ? new Date(oData.entryDate) : null);
+            oModel.setProperty("/entryTime", this._fromEdmTime(oData.entryTime));
+            oModel.setProperty("/remarks", oData.remarks || "");
+            oModel.setProperty("/poNo", oData.referenceNumber || "");
+        },
+
+        _fromEdmTime: function (vValue) {
+            if (!vValue) {
+                return null;
+            }
+            if (vValue instanceof Date && !Number.isNaN(vValue.getTime())) {
+                return vValue;
+            }
+            if (typeof vValue === "string") {
+                var aParts = vValue.split(":");
+                if (aParts.length >= 2) {
+                    var oDate = new Date();
+                    oDate.setHours(parseInt(aParts[0], 10), parseInt(aParts[1], 10), parseInt(aParts[2] || "0", 10), 0);
+                    return oDate;
+                }
+            }
+            return null;
         },
 
         _toEdmDate: function (oDate) {
@@ -163,6 +304,14 @@ sap.ui.define([
         onSavePress: function () {
             var oModel = this.getView().getModel("entry");
             var oData = oModel.getData();
+            var sModeKey = oData.modeKey || "create";
+            if (sModeKey === "display") {
+                return;
+            }
+            if (sModeKey === "cancel") {
+                this._cancelSelectedEntry();
+                return;
+            }
             var oEntryDate = this.byId("entryDatePicker").getDateValue();
             var oEntryTime = this.byId("entryTimePicker").getDateValue();
 
@@ -207,6 +356,10 @@ sap.ui.define([
                 entryTime: oEntryTime ? this._toEdmTime(oEntryTime) : null,
                 remarks: oData.remarks
             };
+            if (sModeKey === "change") {
+                this._updateSelectedEntry(oPayload);
+                return;
+            }
 
             var oListBinding = oODataModel.bindList("/GateEntries");
             var oContext = oListBinding.create(oPayload);
@@ -235,8 +388,61 @@ sap.ui.define([
             }.bind(this));
         },
 
+        _updateSelectedEntry: function (oPayload) {
+            var oModel = this.getView().getModel("entry");
+            var sSelectedId = oModel.getProperty("/selectedGateEntryId");
+            if (!sSelectedId) {
+                MessageBox.error("Please select a Gate Entry first");
+                return;
+            }
+            var oContext = this._mGateEntryContexts[sSelectedId];
+            if (!oContext) {
+                MessageBox.error("Selected Gate Entry is not available for update");
+                return;
+            }
+            Object.keys(oPayload).forEach(function (sKey) {
+                oContext.setProperty(sKey, oPayload[sKey]);
+            });
+            this.getView().getModel().submitBatch("$auto").then(function () {
+                MessageBox.success("Gate Entry updated: " + (oModel.getProperty("/gateEntryNumber") || ""));
+                this._loadCreatedGateEntries();
+            }.bind(this)).catch(function (oError) {
+                MessageBox.error(oError.message || "Error updating Gate Entry");
+            });
+        },
+
+        _cancelSelectedEntry: function () {
+            var oModel = this.getView().getModel("entry");
+            var sSelectedId = oModel.getProperty("/selectedGateEntryId");
+            if (!sSelectedId) {
+                MessageBox.error("Please select a Gate Entry first");
+                return;
+            }
+            var oContext = this._mGateEntryContexts[sSelectedId];
+            if (!oContext) {
+                MessageBox.error("Selected Gate Entry is not available for cancel");
+                return;
+            }
+            oContext.setProperty("entryStatus", "CANCELLED");
+            this.getView().getModel().submitBatch("$auto").then(function () {
+                MessageBox.success("Gate Entry cancelled successfully");
+                this._clearForm();
+                this._applyModeState("cancel");
+                this._loadCreatedGateEntries();
+            }.bind(this)).catch(function (oError) {
+                MessageBox.error(oError.message || "Error cancelling Gate Entry");
+            });
+        },
+
         onCancelPress: function () {
-            this._clearForm();
+            var sModeKey = this.getView().getModel("entry").getProperty("/modeKey");
+            if (sModeKey === "create") {
+                this._clearForm();
+            } else {
+                this.getView().getModel("entry").setProperty("/selectedGateEntryId", "");
+                this._clearEntryFields();
+                this._applyModeState(sModeKey);
+            }
             MessageToast.show("Form cleared");
         },
 
