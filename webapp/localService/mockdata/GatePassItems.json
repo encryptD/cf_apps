@@ -1,0 +1,26 @@
+[
+  {
+    "ID": "770e8400-e29b-41d4-a716-446655440000",
+    "gatePass_ID": "660e8400-e29b-41d4-a716-446655440000",
+    "itemNumber": 1,
+    "materialCode": "MAT-001",
+    "materialDescription": "Steel Sheets 4x8ft",
+    "quantity": 500.000,
+    "unitOfMeasure": "PCS",
+    "supplierInvoiceNo": "INV-001",
+    "supplierInvoiceDate": "2025-04-29",
+    "orderItemNumber": "10"
+  },
+  {
+    "ID": "770e8400-e29b-41d4-a716-446655440001",
+    "gatePass_ID": "660e8400-e29b-41d4-a716-446655440000",
+    "itemNumber": 2,
+    "materialCode": "MAT-002",
+    "materialDescription": "Aluminum Rods 10mm",
+    "quantity": 200.000,
+    "unitOfMeasure": "KG",
+    "supplierInvoiceNo": "INV-001",
+    "supplierInvoiceDate": "2025-04-29",
+    "orderItemNumber": "20"
+  }
+]

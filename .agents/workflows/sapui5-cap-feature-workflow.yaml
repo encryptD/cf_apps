@@ -1,0 +1,38 @@
+name: sapui5-cap-feature-workflow
+description: Standard workflow for developing and fixing SAPUI5 + CAP features in this repository
+applies_to:
+  - webapp/**
+  - srv/**
+  - db/**
+steps:
+  - id: 1-diagnose
+    title: Diagnose before editing
+    checks:
+      - Confirm manifest sections are correct: sap.app.dataSources, sap.ui5.models, sap.ui5.routing
+      - Confirm UI navigation uses Router navTo (no window.location)
+      - For GenericTile metadata, use core:CustomData (not data-* attributes)
+      - For OData V4 model, avoid V2 APIs (.read/.create/.callFunction callback style)
+  - id: 2-implement
+    title: Implement with repository conventions
+    rules:
+      - Use i18n keys for all user-facing text
+      - Keep controllers in sap.ui.define + strict mode
+      - Use OData V4 patterns: bindList/requestContexts, bindContext/requestObject, action execute
+      - Keep service path relative in app (/gatepass/) and use local proxy for dev
+  - id: 3-validate-local
+    title: Validate locally
+    commands:
+      - npm run start:cap
+      - npm start
+      - Check browser console for: i18n assertions, $metadata errors, CORS/$batch errors
+      - Validate routing and tile press behavior for Dashboard, Gate Entry, Gate Pass, Gate Exit
+  - id: 4-validate-deployment
+    title: Validate deployment artifacts
+    commands:
+      - mbt build -p=cf -t .mtar_tmp
+      - Ensure mta modules have valid build-result and existing paths
+      - Ensure xs-security scopes/role-templates align with app roles
+outputs:
+  - Updated code and config
+  - Zero fatal console/runtime errors for impacted flow
+  - Buildable MTAR at .mtar_tmp/

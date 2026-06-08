@@ -1,0 +1,47 @@
+{
+  "xsappname": "gatepass-websol-dev",
+  "tenant-mode": "dedicated",
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.cfapps.eu10-004.hana.ondemand.com/login/callback",
+      "https://*.cfapps.eu10.hana.ondemand.com/login/callback"
+    ]
+  },
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.Security",
+      "description": "Security operations scope"
+    },
+    {
+      "name": "$XSAPPNAME.Warehouse",
+      "description": "Warehouse operations scope"
+    },
+    {
+      "name": "$XSAPPNAME.Admin",
+      "description": "Administrator scope"
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "Security",
+      "description": "Security role",
+      "scope-references": [
+        "$XSAPPNAME.Security"
+      ]
+    },
+    {
+      "name": "Warehouse",
+      "description": "Warehouse role",
+      "scope-references": [
+        "$XSAPPNAME.Warehouse"
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Admin role",
+      "scope-references": [
+        "$XSAPPNAME.Admin"
+      ]
+    }
+  ]
+}

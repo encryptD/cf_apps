@@ -1,0 +1,14 @@
+[
+  {
+    "ID": "880e8400-e29b-41d4-a716-446655440000",
+    "gateExitNumber": "GX-000001",
+    "gateEntry_ID": "550e8400-e29b-41d4-a716-446655440000",
+    "gateEntryNumber": "GE-000001",
+    "gatePass_ID": "660e8400-e29b-41d4-a716-446655440000",
+    "gatePassNumber": "GP-000001",
+    "exitDate": "2025-05-01",
+    "exitTime": "16:30:00",
+    "securityOfficer": "Officer Sharma",
+    "remarks": "Exit completed after unloading"
+  }
+]

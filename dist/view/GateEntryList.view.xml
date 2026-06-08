@@ -1,0 +1,157 @@
+<mvc:View
+    controllerName="com.mdasad.gatepass.controller.GateEntryList"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:core="sap.ui.core">
+
+    <Page
+        id="gateEntryPage"
+        title="{i18n>gateEntryTitle}"
+        showNavButton="true"
+        navButtonPress=".onNavBack">
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <!-- Mode Selection -->
+                <SegmentedButton
+                    id="modeSelection"
+                    selectedKey="create"
+                    class="sapUiSmallMarginBottom"
+                    selectionChange=".onModeChange">
+                    <items>
+                        <SegmentedButtonItem text="{i18n>create}" key="create"/>
+                        <SegmentedButtonItem text="{i18n>change}" key="change"/>
+                        <SegmentedButtonItem text="{i18n>display}" key="display"/>
+                        <SegmentedButtonItem text="{i18n>cancel}" key="cancel"/>
+                    </items>
+                </SegmentedButton>
+
+                <!-- Movement Type Radio -->
+                <VBox class="sapUiSmallMarginBottom">
+                    <Title text="{i18n>movementType}" level="H5"/>
+                    <RadioButtonGroup
+                        id="movementTypeGroup"
+                        selectedIndex="{entry>/movementType === 'I' ? 0 : 1}"
+                        select=".onMovementTypeChange">
+                        <buttons>
+                            <RadioButton text="{i18n>inward}" selected="{= ${entry>/movementType} === 'I' }"/>
+                            <RadioButton text="{i18n>outward}" selected="{= ${entry>/movementType} === 'O' }"/>
+                        </buttons>
+                    </RadioButtonGroup>
+                </VBox>
+
+                <!-- Entry Form -->
+                <form:SimpleForm
+                    id="gateEntryForm"
+                    editable="true"
+                    layout="ColumnLayout"
+                    columnsM="2"
+                    columnsL="3"
+                    columnsXL="4"
+                    title="{i18n>entryDetails}">
+
+                    <form:content>
+                        <core:Title text="{i18n>gateEntryInfo}"/>
+
+                        <Label text="{i18n>gateEntryNumber}"/>
+                        <Input id="gateEntryNoInput" value="{entry>/gateEntryNumber}" editable="false"/>
+
+                        <Label text="{i18n>gateEntryYear}"/>
+                        <Input id="gateEntryYearInput" value="{entry>/gateEntryYear}" editable="false"/>
+
+                        <core:Title text="{i18n>referenceInfo}"/>
+
+                        <Label text="{i18n>referenceType}" required="true"/>
+                        <Text text="{parts: [{path: 'entry>/movementType'}], formatter: '.formatReferenceType'}"/>
+
+                        <Label text="{i18n>referenceNumber}"/>
+                        <ComboBox
+                            id="poNoCombo"
+                            items="{po>/poList}"
+                            selectedKey="{entry>/poNo}"
+                            change=".onPONoChange"
+                            placeholder="{i18n>enterPONumber}">
+                            <core:Item key="{po>poNo}" text="{po>poNoText}"/>
+                        </ComboBox>
+
+                        <Label text="{i18n>plant}"/>
+                        <Input
+                            id="plantInput"
+                            value="{entry>/plant}"
+                            editable="false"/>
+
+                        <Label text="{i18n>partyNumber}"/>
+                        <Input value="{entry>/partyNumber}" editable="false"/>
+
+                        <Label text="{i18n>partyName}"/>
+                        <Input value="{entry>/partyName}" editable="false"/>
+
+                        <core:Title text="{i18n>vehicleInfo}"/>
+
+                        <Label text="{i18n>vehicleNumber}" required="true"/>
+                        <Input
+                            id="vehicleNumberInput"
+                            value="{entry>/vehicleNumber}"/>
+
+                        <Label text="{i18n>vehicleType}" required="true"/>
+                        <Input id="vehicleTypeInput" value="{entry>/vehicleType}"/>
+
+                        <Label text="{i18n>driverName}" required="true"/>
+                        <Input id="driverNameInput" value="{entry>/driverName}"/>
+
+                        <Label text="{i18n>transporterName}" required="true"/>
+                        <Input
+                            id="transporterNameInput"
+                            value="{entry>/transporterName}"/>
+
+                        <Label text="{i18n>transporterNumber}"/>
+                        <Input value="{entry>/transporterNumber}"/>
+
+                        <Label text="{i18n>driverContact}"/>
+                        <Input value="{entry>/driverContact}"/>
+
+                        <Label text="{i18n>lrNumber}"/>
+                        <Input value="{entry>/lrNumber}"/>
+
+                        <core:Title text="{i18n>entryTimestamps}"/>
+
+                        <Label text="{i18n>entryDate}" required="true"/>
+                        <DatePicker
+                            id="entryDatePicker"
+                            dateValue="{entry>/entryDate}"
+                            displayFormat="dd-MMM-yyyy"/>
+
+                        <Label text="{i18n>entryTime}"/>
+                        <TimePicker
+                            id="entryTimePicker"
+                            dateValue="{entry>/entryTime}"/>
+
+                        <core:Title text="{i18n>additionalInfo}"/>
+
+                        <Label text="{i18n>remarks}"/>
+                        <TextArea value="{entry>/remarks}" rows="3"/>
+                    </form:content>
+                </form:SimpleForm>
+            </VBox>
+        </content>
+
+        <footer>
+            <Bar>
+                <contentRight>
+                    <Button
+                        id="saveButton"
+                        text="{i18n>save}"
+                        type="Emphasized"
+                        press=".onSavePress"/>
+                    <Button
+                        id="cancelButton"
+                        text="{i18n>clear}"
+                        press=".onCancelPress"/>
+                </contentRight>
+            </Bar>
+        </footer>
+    </Page>
+
+</mvc:View>

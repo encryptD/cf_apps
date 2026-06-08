@@ -1,0 +1,67 @@
+<mvc:View
+    controllerName="com.mdasad.gatepass.controller.Dashboard"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout">
+
+    <Page
+        id="dashboardPage"
+        title="{i18n>dashboardTitle}"
+        showNavButton="false">
+
+        <content>
+            <l:Grid
+                class="sapUiSmallMargin"
+                defaultSpan="XL4 L4 M6 S12"
+                hSpacing="1"
+                vSpacing="1">
+
+                <GenericTile
+                    id="tileGateEntry"
+                    header="{i18n>gateEntryTitle}"
+                    subheader="{i18n>gateEntrySubtitle}"
+                    press=".onTilePress"
+                    visible="{= ${dashboard>/userRole} === 'SECURITY' || ${dashboard>/userRole} === 'ADMIN' }">
+                    <customData>
+                        <core:CustomData key="route" value="GateEntryList"/>
+                    </customData>
+                    <TileContent>
+                        <core:Icon src="sap-icon://log" size="2rem" color="Default"/>
+                    </TileContent>
+                </GenericTile>
+
+                <GenericTile
+                    id="tileGatePass"
+                    header="{i18n>gatePassTitle}"
+                    subheader="{i18n>gatePassSubtitle}"
+                    press=".onTilePress"
+                    visible="{= ${dashboard>/userRole} === 'WAREHOUSE' || ${dashboard>/userRole} === 'ADMIN' }">
+                    <customData>
+                        <core:CustomData key="route" value="GatePassList"/>
+                    </customData>
+                    <TileContent>
+                        <core:Icon src="sap-icon://product" size="2rem" color="Default"/>
+                    </TileContent>
+                </GenericTile>
+
+                <GenericTile
+                    id="tileGateExit"
+                    header="{i18n>gateExitTitle}"
+                    subheader="{i18n>gateExitSubtitle}"
+                    press=".onTilePress"
+                    visible="{= ${dashboard>/userRole} === 'SECURITY' || ${dashboard>/userRole} === 'ADMIN' }">
+                    <customData>
+                        <core:CustomData key="route" value="GateExit"/>
+                    </customData>
+                    <TileContent>
+                        <core:Icon src="sap-icon://log" size="2rem" color="Default"/>
+                    </TileContent>
+                </GenericTile>
+
+            </l:Grid>
+        </content>
+
+    </Page>
+
+</mvc:View>

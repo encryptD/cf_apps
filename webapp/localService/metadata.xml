@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+    <edmx:DataServices>
+        <Schema Namespace="com.mdasad.gatepass" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <EntityType Name="GateEntries">
+                <Key>
+                    <PropertyRef Name="ID"/>
+                </Key>
+                <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="movementType" Type="Edm.String" MaxLength="1"/>
+                <Property Name="documentStatus" Type="Edm.String" MaxLength="20"/>
+                <Property Name="entryStatus" Type="Edm.String" MaxLength="20"/>
+                <Property Name="plant" Type="Edm.String" MaxLength="10" Nullable="false"/>
+                <Property Name="partyNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="partyName" Type="Edm.String" MaxLength="100"/>
+                <Property Name="referenceType" Type="Edm.String" MaxLength="10"/>
+                <Property Name="referenceNumber" Type="Edm.String" MaxLength="20" Nullable="false"/>
+                <Property Name="vehicleNumber" Type="Edm.String" MaxLength="20" Nullable="false"/>
+                <Property Name="vehicleType" Type="Edm.String" MaxLength="20"/>
+                <Property Name="transporterNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="transporterName" Type="Edm.String" MaxLength="100" Nullable="false"/>
+                <Property Name="driverName" Type="Edm.String" MaxLength="100"/>
+                <Property Name="driverContact" Type="Edm.String" MaxLength="20"/>
+                <Property Name="lrNumber" Type="Edm.String" MaxLength="50"/>
+                <Property Name="entryDate" Type="Edm.Date" Nullable="false"/>
+                <Property Name="entryTime" Type="Edm.TimeOfDay"/>
+                <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+                <Property Name="createdAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+                <Property Name="modifiedAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+            </EntityType>
+
+            <EntityType Name="GatePasses">
+                <Key>
+                    <PropertyRef Name="ID"/>
+                </Key>
+                <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gatePassNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="movementType" Type="Edm.String" MaxLength="1" Nullable="false"/>
+                <Property Name="documentStatus" Type="Edm.String" MaxLength="20"/>
+                <Property Name="gateEntry_ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="referenceType" Type="Edm.String" MaxLength="10"/>
+                <Property Name="referenceNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="invoiceDate" Type="Edm.Date"/>
+                <Property Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+                <Property Name="partyNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="partyName" Type="Edm.String" MaxLength="100"/>
+                <Property Name="eWayBillNumber" Type="Edm.String" MaxLength="50"/>
+                <Property Name="eWayBillDate" Type="Edm.Date"/>
+                <Property Name="shippingAddress" Type="Edm.String" MaxLength="250"/>
+                <Property Name="vehicleNumber" Type="Edm.String" MaxLength="20" Nullable="false"/>
+                <Property Name="vehicleType" Type="Edm.String" MaxLength="20"/>
+                <Property Name="transporterName" Type="Edm.String" MaxLength="100"/>
+                <Property Name="driverName" Type="Edm.String" MaxLength="100"/>
+                <Property Name="lrNumber" Type="Edm.String" MaxLength="50"/>
+                <Property Name="passDate" Type="Edm.Date" Nullable="false"/>
+                <Property Name="passTime" Type="Edm.TimeOfDay"/>
+                <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+                <Property Name="createdAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+                <Property Name="modifiedAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+            </EntityType>
+
+            <EntityType Name="GatePassItems">
+                <Key>
+                    <PropertyRef Name="ID"/>
+                </Key>
+                <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gatePass_ID" Type="Edm.Guid"/>
+                <Property Name="itemNumber" Type="Edm.Int32"/>
+                <Property Name="materialCode" Type="Edm.String" MaxLength="40" Nullable="false"/>
+                <Property Name="materialDescription" Type="Edm.String" MaxLength="200" Nullable="false"/>
+                <Property Name="quantity" Type="Edm.Decimal" Precision="15" Scale="3" Nullable="false"/>
+                <Property Name="unitOfMeasure" Type="Edm.String" MaxLength="10"/>
+                <Property Name="supplierInvoiceNo" Type="Edm.String" MaxLength="50"/>
+                <Property Name="supplierInvoiceDate" Type="Edm.Date"/>
+                <Property Name="orderItemNumber" Type="Edm.String" MaxLength="10"/>
+                <Property Name="createdAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+                <Property Name="modifiedAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+            </EntityType>
+
+            <EntityType Name="GateExit">
+                <Key>
+                    <PropertyRef Name="ID"/>
+                </Key>
+                <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gateExitNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="gateEntry_ID" Type="Edm.Guid" Nullable="false"/>
+                <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="gatePass_ID" Type="Edm.Guid"/>
+                <Property Name="gatePassNumber" Type="Edm.String" MaxLength="20"/>
+                <Property Name="exitDate" Type="Edm.Date" Nullable="false"/>
+                <Property Name="exitTime" Type="Edm.TimeOfDay"/>
+                <Property Name="securityOfficer" Type="Edm.String" MaxLength="100"/>
+                <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+                <Property Name="createdAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+                <Property Name="modifiedAt" Type="Edm.DateTimeOffset"/>
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+            </EntityType>
+
+            <EntityContainer Name="GatePassService">
+                <EntitySet Name="GateEntries" EntityType="com.mdasad.gatepass.GateEntries"/>
+                <EntitySet Name="GatePasses" EntityType="com.mdasad.gatepass.GatePasses"/>
+                <EntitySet Name="GatePassItems" EntityType="com.mdasad.gatepass.GatePassItems"/>
+                <EntitySet Name="GateExit" EntityType="com.mdasad.gatepass.GateExit"/>
+            </EntityContainer>
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>

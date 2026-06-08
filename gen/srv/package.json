@@ -1,0 +1,37 @@
+{
+  "name": "gatepass",
+  "version": "1.0.0",
+  "description": "Gate Pass SAPUI5 Application",
+  "private": true,
+  "scripts": {
+    "start": "ui5 serve --open /index.html",
+    "start:cap": "cds watch",
+    "build": "ui5 build --clean-dest && cp webapp/xs-app.json dist/xs-app.json",
+    "build:preload": "ui5 build --clean-dest --include-task=generateComponentPreload"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "devDependencies": {
+    "@ui5/cli": "^4",
+    "@sap/cds": "^9",
+    "@sap/cds-dk": "^9",
+    "sqlite3": "^6",
+    "ui5-middleware-simpleproxy": "^3.4.1"
+  },
+  "dependencies": {
+    "@sap/cds": "^9",
+    "@cap-js/sqlite": "^2",
+    "@sap/xssec": "^4"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "database": "gatepass.db"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,2667 @@
+{
+  "namespace": "com.mdasad.gatepass",
+  "definitions": {
+    "com.mdasad.gatepass.Plants": {
+      "kind": "entity",
+      "includes": [
+        "managed"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "plantCode": {
+          "@title": "Plant Code",
+          "key": true,
+          "type": "cds.String",
+          "length": 10
+        },
+        "plantName": {
+          "@title": "Plant Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "location": {
+          "@title": "Location",
+          "type": "cds.String",
+          "length": 200
+        },
+        "address": {
+          "@title": "Address",
+          "type": "cds.String",
+          "length": 250
+        }
+      }
+    },
+    "com.mdasad.gatepass.MovementType": {
+      "kind": "type",
+      "type": "cds.String",
+      "enum": {
+        "Inward": {
+          "val": "I"
+        },
+        "Outward": {
+          "val": "O"
+        }
+      }
+    },
+    "com.mdasad.gatepass.DocumentStatus": {
+      "kind": "type",
+      "type": "cds.String",
+      "enum": {
+        "Open": {
+          "val": "OPEN"
+        },
+        "InProgress": {
+          "val": "IN_PROGRESS"
+        },
+        "Closed": {
+          "val": "CLOSED"
+        },
+        "Cancelled": {
+          "val": "CANCELLED"
+        }
+      }
+    },
+    "com.mdasad.gatepass.EntryStatus": {
+      "kind": "type",
+      "type": "cds.String",
+      "enum": {
+        "Created": {
+          "val": "CREATED"
+        },
+        "PassIssued": {
+          "val": "PASS_ISSUED"
+        },
+        "Exited": {
+          "val": "EXITED"
+        },
+        "Cancelled": {
+          "val": "CANCELLED"
+        }
+      }
+    },
+    "com.mdasad.gatepass.ReferenceType": {
+      "kind": "type",
+      "type": "cds.String",
+      "enum": {
+        "PurchaseOrder": {
+          "val": "PO"
+        },
+        "SalesInvoice": {
+          "val": "SI"
+        }
+      }
+    },
+    "com.mdasad.gatepass.GateEntries": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gateEntryYear": {
+          "@title": "Gate Entry Year",
+          "type": "cds.Integer"
+        },
+        "movementType": {
+          "@title": "Movement Type",
+          "type": "com.mdasad.gatepass.MovementType",
+          "notNull": true
+        },
+        "documentStatus": {
+          "@title": "Document Status",
+          "type": "com.mdasad.gatepass.DocumentStatus",
+          "default": {
+            "val": "OPEN"
+          }
+        },
+        "entryStatus": {
+          "@title": "Entry Status",
+          "type": "com.mdasad.gatepass.EntryStatus",
+          "default": {
+            "val": "CREATED"
+          }
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "referenceType": {
+          "@title": "Reference Type",
+          "type": "com.mdasad.gatepass.ReferenceType"
+        },
+        "referenceNumber": {
+          "@title": "Reference Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "vehicleType": {
+          "@title": "Vehicle Type",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "transporterNumber": {
+          "@title": "Transporter Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "transporterName": {
+          "@title": "Transporter Name",
+          "type": "cds.String",
+          "length": 100,
+          "notNull": true
+        },
+        "driverName": {
+          "@title": "Driver Name",
+          "type": "cds.String",
+          "length": 100,
+          "notNull": true
+        },
+        "driverContact": {
+          "@title": "Driver Contact",
+          "type": "cds.String",
+          "length": 20
+        },
+        "lrNumber": {
+          "@title": "LR Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "entryDate": {
+          "@title": "Entry Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "entryTime": {
+          "@title": "Entry Time",
+          "type": "cds.Time"
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "invoiceDate": {
+          "@title": "Invoice Date",
+          "type": "cds.Date"
+        },
+        "invoiceValue": {
+          "@title": "Invoice Value",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "eWayBillNumber": {
+          "@title": "E-Way Bill Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "eWayBillDate": {
+          "@title": "E-Way Bill Date",
+          "type": "cds.Date"
+        },
+        "shippingAddress": {
+          "@title": "Shipping Address",
+          "type": "cds.String",
+          "length": 250
+        },
+        "passDate": {
+          "@title": "Pass Date",
+          "type": "cds.Date"
+        },
+        "passTime": {
+          "@title": "Pass Time",
+          "type": "cds.Time"
+        },
+        "passRemarks": {
+          "@title": "Pass Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "materialItemsJson": {
+          "@title": "Material Items JSON",
+          "type": "cds.LargeString"
+        },
+        "gatePasses": {
+          "type": "cds.Association",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "com.mdasad.gatepass.GatePasses",
+          "on": [
+            {
+              "ref": [
+                "gatePasses",
+                "gateEntry"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        },
+        "gateExit": {
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GateExit",
+          "on": [
+            {
+              "ref": [
+                "gateExit",
+                "gateEntry"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "com.mdasad.gatepass.GatePasses": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gatePassNumber": {
+          "@title": "Gate Pass Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "movementType": {
+          "@title": "Movement Type",
+          "type": "com.mdasad.gatepass.MovementType",
+          "notNull": true
+        },
+        "documentStatus": {
+          "@title": "Document Status",
+          "type": "com.mdasad.gatepass.DocumentStatus",
+          "default": {
+            "val": "OPEN"
+          }
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "referenceType": {
+          "@title": "Reference Type",
+          "type": "cds.String",
+          "length": 10
+        },
+        "referenceNumber": {
+          "@title": "Reference Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "invoiceDate": {
+          "@title": "Invoice Date",
+          "type": "cds.Date"
+        },
+        "invoiceValue": {
+          "@title": "Invoice Value",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "eWayBillNumber": {
+          "@title": "E-Way Bill Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "eWayBillDate": {
+          "@title": "E-Way Bill Date",
+          "type": "cds.Date"
+        },
+        "shippingAddress": {
+          "@title": "Shipping Address",
+          "type": "cds.String",
+          "length": 250
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "vehicleType": {
+          "@title": "Vehicle Type",
+          "type": "cds.String",
+          "length": 20
+        },
+        "transporterName": {
+          "@title": "Transporter Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "driverName": {
+          "@title": "Driver Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "lrNumber": {
+          "@title": "LR Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "passDate": {
+          "@title": "Pass Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "passTime": {
+          "@title": "Pass Time",
+          "type": "cds.Time"
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "items": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "com.mdasad.gatepass.GatePassItems",
+          "on": [
+            {
+              "ref": [
+                "items",
+                "gatePass"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "com.mdasad.gatepass.GatePassItems": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gatePass": {
+          "@title": "Gate Pass",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GatePasses",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "itemNumber": {
+          "@title": "Item Number",
+          "type": "cds.Integer"
+        },
+        "materialCode": {
+          "@title": "Material Code",
+          "type": "cds.String",
+          "length": 40,
+          "notNull": true
+        },
+        "materialDescription": {
+          "@title": "Material Description",
+          "type": "cds.String",
+          "length": 200,
+          "notNull": true
+        },
+        "quantity": {
+          "@title": "Quantity",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 3,
+          "notNull": true
+        },
+        "unitOfMeasure": {
+          "@title": "Unit of Measure",
+          "type": "cds.String",
+          "length": 10
+        },
+        "supplierInvoiceNo": {
+          "@title": "Supplier Invoice No",
+          "type": "cds.String",
+          "length": 50
+        },
+        "supplierInvoiceDate": {
+          "@title": "Supplier Invoice Date",
+          "type": "cds.Date"
+        },
+        "orderItemNumber": {
+          "@title": "Order Item Number",
+          "type": "cds.String",
+          "length": 10
+        }
+      }
+    },
+    "com.mdasad.gatepass.GateExit": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gateExitNumber": {
+          "@title": "Gate Exit Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gatePass": {
+          "@title": "Gate Pass",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GatePasses",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "gatePassNumber": {
+          "@title": "Gate Pass Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "exitDate": {
+          "@title": "Exit Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "exitTime": {
+          "@title": "Exit Time",
+          "type": "cds.Time"
+        },
+        "securityOfficer": {
+          "@title": "Security Officer",
+          "type": "cds.String",
+          "length": 100
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        }
+      }
+    },
+    "GatePassService": {
+      "@source": "srv/gatepass-service.cds",
+      "kind": "service",
+      "@path": "/gatepass"
+    },
+    "GatePassService.Plants": {
+      "kind": "entity",
+      "@readonly": true,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.Plants"
+          ]
+        }
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "plantCode": {
+          "@title": "Plant Code",
+          "key": true,
+          "type": "cds.String",
+          "length": 10
+        },
+        "plantName": {
+          "@title": "Plant Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "location": {
+          "@title": "Location",
+          "type": "cds.String",
+          "length": 200
+        },
+        "address": {
+          "@title": "Address",
+          "type": "cds.String",
+          "length": 250
+        }
+      }
+    },
+    "GatePassService.GateEntries": {
+      "kind": "entity",
+      "@Capabilities.Insertable": true,
+      "@Capabilities.Updatable": true,
+      "@Capabilities.Deletable": false,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.GateEntries"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "gatePasses"
+            ],
+            "cast": {
+              "target": "GatePassService.GatePasses"
+            }
+          },
+          {
+            "ref": [
+              "gateExit"
+            ],
+            "cast": {
+              "target": "GatePassService.GateExit"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gateEntryYear": {
+          "@title": "Gate Entry Year",
+          "type": "cds.Integer"
+        },
+        "movementType": {
+          "@title": "Movement Type",
+          "type": "com.mdasad.gatepass.MovementType",
+          "notNull": true
+        },
+        "documentStatus": {
+          "@title": "Document Status",
+          "type": "com.mdasad.gatepass.DocumentStatus",
+          "default": {
+            "val": "OPEN"
+          }
+        },
+        "entryStatus": {
+          "@title": "Entry Status",
+          "type": "com.mdasad.gatepass.EntryStatus",
+          "default": {
+            "val": "CREATED"
+          }
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "referenceType": {
+          "@title": "Reference Type",
+          "type": "com.mdasad.gatepass.ReferenceType"
+        },
+        "referenceNumber": {
+          "@title": "Reference Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "vehicleType": {
+          "@title": "Vehicle Type",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "transporterNumber": {
+          "@title": "Transporter Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "transporterName": {
+          "@title": "Transporter Name",
+          "type": "cds.String",
+          "length": 100,
+          "notNull": true
+        },
+        "driverName": {
+          "@title": "Driver Name",
+          "type": "cds.String",
+          "length": 100,
+          "notNull": true
+        },
+        "driverContact": {
+          "@title": "Driver Contact",
+          "type": "cds.String",
+          "length": 20
+        },
+        "lrNumber": {
+          "@title": "LR Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "entryDate": {
+          "@title": "Entry Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "entryTime": {
+          "@title": "Entry Time",
+          "type": "cds.Time"
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "invoiceDate": {
+          "@title": "Invoice Date",
+          "type": "cds.Date"
+        },
+        "invoiceValue": {
+          "@title": "Invoice Value",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "eWayBillNumber": {
+          "@title": "E-Way Bill Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "eWayBillDate": {
+          "@title": "E-Way Bill Date",
+          "type": "cds.Date"
+        },
+        "shippingAddress": {
+          "@title": "Shipping Address",
+          "type": "cds.String",
+          "length": 250
+        },
+        "passDate": {
+          "@title": "Pass Date",
+          "type": "cds.Date"
+        },
+        "passTime": {
+          "@title": "Pass Time",
+          "type": "cds.Time"
+        },
+        "passRemarks": {
+          "@title": "Pass Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "materialItemsJson": {
+          "@title": "Material Items JSON",
+          "type": "cds.LargeString"
+        },
+        "gatePasses": {
+          "type": "cds.Association",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "GatePassService.GatePasses",
+          "on": [
+            {
+              "ref": [
+                "gatePasses",
+                "gateEntry"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        },
+        "gateExit": {
+          "type": "cds.Association",
+          "target": "GatePassService.GateExit",
+          "on": [
+            {
+              "ref": [
+                "gateExit",
+                "gateEntry"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "GatePassService.GatePasses": {
+      "kind": "entity",
+      "@Capabilities.Insertable": true,
+      "@Capabilities.Updatable": true,
+      "@Capabilities.Deletable": false,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.GatePasses"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "gateEntry"
+            ],
+            "cast": {
+              "target": "GatePassService.GateEntries"
+            }
+          },
+          {
+            "ref": [
+              "items"
+            ],
+            "cast": {
+              "target": "GatePassService.GatePassItems"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gatePassNumber": {
+          "@title": "Gate Pass Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "movementType": {
+          "@title": "Movement Type",
+          "type": "com.mdasad.gatepass.MovementType",
+          "notNull": true
+        },
+        "documentStatus": {
+          "@title": "Document Status",
+          "type": "com.mdasad.gatepass.DocumentStatus",
+          "default": {
+            "val": "OPEN"
+          }
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "GatePassService.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "referenceType": {
+          "@title": "Reference Type",
+          "type": "cds.String",
+          "length": 10
+        },
+        "referenceNumber": {
+          "@title": "Reference Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "invoiceDate": {
+          "@title": "Invoice Date",
+          "type": "cds.Date"
+        },
+        "invoiceValue": {
+          "@title": "Invoice Value",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "eWayBillNumber": {
+          "@title": "E-Way Bill Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "eWayBillDate": {
+          "@title": "E-Way Bill Date",
+          "type": "cds.Date"
+        },
+        "shippingAddress": {
+          "@title": "Shipping Address",
+          "type": "cds.String",
+          "length": 250
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 20,
+          "notNull": true
+        },
+        "vehicleType": {
+          "@title": "Vehicle Type",
+          "type": "cds.String",
+          "length": 20
+        },
+        "transporterName": {
+          "@title": "Transporter Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "driverName": {
+          "@title": "Driver Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "lrNumber": {
+          "@title": "LR Number",
+          "type": "cds.String",
+          "length": 50
+        },
+        "passDate": {
+          "@title": "Pass Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "passTime": {
+          "@title": "Pass Time",
+          "type": "cds.Time"
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        },
+        "items": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "GatePassService.GatePassItems",
+          "on": [
+            {
+              "ref": [
+                "items",
+                "gatePass"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "GatePassService.GatePassItems": {
+      "kind": "entity",
+      "@Capabilities.Insertable": true,
+      "@Capabilities.Updatable": true,
+      "@Capabilities.Deletable": true,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.GatePassItems"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "gatePass"
+            ],
+            "cast": {
+              "target": "GatePassService.GatePasses"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gatePass": {
+          "@title": "Gate Pass",
+          "type": "cds.Association",
+          "target": "GatePassService.GatePasses",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "itemNumber": {
+          "@title": "Item Number",
+          "type": "cds.Integer"
+        },
+        "materialCode": {
+          "@title": "Material Code",
+          "type": "cds.String",
+          "length": 40,
+          "notNull": true
+        },
+        "materialDescription": {
+          "@title": "Material Description",
+          "type": "cds.String",
+          "length": 200,
+          "notNull": true
+        },
+        "quantity": {
+          "@title": "Quantity",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 3,
+          "notNull": true
+        },
+        "unitOfMeasure": {
+          "@title": "Unit of Measure",
+          "type": "cds.String",
+          "length": 10
+        },
+        "supplierInvoiceNo": {
+          "@title": "Supplier Invoice No",
+          "type": "cds.String",
+          "length": 50
+        },
+        "supplierInvoiceDate": {
+          "@title": "Supplier Invoice Date",
+          "type": "cds.Date"
+        },
+        "orderItemNumber": {
+          "@title": "Order Item Number",
+          "type": "cds.String",
+          "length": 10
+        }
+      }
+    },
+    "GatePassService.GateExit": {
+      "kind": "entity",
+      "@Capabilities.Insertable": true,
+      "@Capabilities.Updatable": false,
+      "@Capabilities.Deletable": false,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.GateExit"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "gateEntry"
+            ],
+            "cast": {
+              "target": "GatePassService.GateEntries"
+            }
+          },
+          {
+            "ref": [
+              "gatePass"
+            ],
+            "cast": {
+              "target": "GatePassService.GatePasses"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "gateExitNumber": {
+          "@title": "Gate Exit Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "GatePassService.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "gateEntryNumber": {
+          "@title": "Gate Entry Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "gatePass": {
+          "@title": "Gate Pass",
+          "type": "cds.Association",
+          "target": "GatePassService.GatePasses",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "gatePassNumber": {
+          "@title": "Gate Pass Number",
+          "type": "cds.String",
+          "length": 20
+        },
+        "exitDate": {
+          "@title": "Exit Date",
+          "type": "cds.Date",
+          "notNull": true
+        },
+        "exitTime": {
+          "@title": "Exit Time",
+          "type": "cds.Time"
+        },
+        "securityOfficer": {
+          "@title": "Security Officer",
+          "type": "cds.String",
+          "length": 100
+        },
+        "remarks": {
+          "@title": "Remarks",
+          "type": "cds.String",
+          "length": 500
+        }
+      }
+    },
+    "GatePassService.closeGateEntry": {
+      "kind": "action",
+      "params": {
+        "gateEntryID": {
+          "type": "cds.UUID"
+        },
+        "gatePassID": {
+          "type": "cds.UUID"
+        }
+      },
+      "returns": {
+        "type": "GatePassService.GateEntries"
+      }
+    },
+    "GatePassService.saveGatePassData": {
+      "kind": "action",
+      "params": {
+        "gateEntryID": {
+          "type": "cds.UUID"
+        },
+        "vehicleNumber": {
+          "type": "cds.String"
+        },
+        "vehicleType": {
+          "type": "cds.String"
+        },
+        "transporterName": {
+          "type": "cds.String"
+        },
+        "driverName": {
+          "type": "cds.String"
+        },
+        "lrNumber": {
+          "type": "cds.String"
+        },
+        "invoiceDate": {
+          "type": "cds.Date"
+        },
+        "invoiceValue": {
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "eWayBillNumber": {
+          "type": "cds.String"
+        },
+        "eWayBillDate": {
+          "type": "cds.Date"
+        },
+        "shippingAddress": {
+          "type": "cds.String"
+        },
+        "passDate": {
+          "type": "cds.Date"
+        },
+        "passTime": {
+          "type": "cds.Time"
+        },
+        "remarks": {
+          "type": "cds.String"
+        },
+        "itemsJson": {
+          "type": "cds.String",
+          "length": 5000
+        }
+      },
+      "returns": {
+        "type": "GatePassService.GateEntries"
+      }
+    },
+    "GatePassService.printGatePass": {
+      "kind": "action",
+      "params": {
+        "gatePassID": {
+          "type": "cds.UUID"
+        }
+      },
+      "returns": {
+        "type": "cds.String"
+      }
+    },
+    "GatePassService.getPurchaseOrderDetails": {
+      "kind": "function",
+      "params": {
+        "poNumber": {
+          "type": "cds.String"
+        }
+      },
+      "returns": {
+        "elements": {
+          "plant": {
+            "type": "cds.String"
+          },
+          "supplierNumber": {
+            "type": "cds.String"
+          },
+          "supplierName": {
+            "type": "cds.String"
+          }
+        }
+      }
+    },
+    "GatePassService.getSalesInvoiceDetails": {
+      "kind": "function",
+      "params": {
+        "invoiceNumber": {
+          "type": "cds.String"
+        }
+      },
+      "returns": {
+        "elements": {
+          "plant": {
+            "type": "cds.String"
+          },
+          "customerNumber": {
+            "type": "cds.String"
+          },
+          "customerName": {
+            "type": "cds.String"
+          }
+        }
+      }
+    },
+    "cds.outbox.Messages": {
+      "kind": "entity",
+      "elements": {
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "timestamp": {
+          "type": "cds.Timestamp"
+        },
+        "target": {
+          "type": "cds.String"
+        },
+        "msg": {
+          "type": "cds.LargeString"
+        },
+        "attempts": {
+          "type": "cds.Integer",
+          "default": {
+            "val": 0
+          }
+        },
+        "partition": {
+          "type": "cds.Integer",
+          "default": {
+            "val": 0
+          }
+        },
+        "lastError": {
+          "type": "cds.LargeString"
+        },
+        "lastAttemptTimestamp": {
+          "type": "cds.Timestamp"
+        },
+        "status": {
+          "type": "cds.String",
+          "length": 23
+        },
+        "task": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "appid": {
+          "type": "cds.String",
+          "length": 255
+        }
+      }
+    },
+    "Language": {
+      "kind": "type",
+      "@title": "{i18n>Language}",
+      "@description": "{i18n>LanguageCode.Description}",
+      "type": "cds.Association",
+      "target": "sap.common.Languages",
+      "keys": [
+        {
+          "ref": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "Currency": {
+      "kind": "type",
+      "@title": "{i18n>Currency}",
+      "@description": "{i18n>CurrencyCode.Description}",
+      "type": "cds.Association",
+      "target": "sap.common.Currencies",
+      "keys": [
+        {
+          "ref": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "Country": {
+      "kind": "type",
+      "@title": "{i18n>Country}",
+      "@description": "{i18n>CountryCode.Description}",
+      "type": "cds.Association",
+      "target": "sap.common.Countries",
+      "keys": [
+        {
+          "ref": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "Timezone": {
+      "kind": "type",
+      "type": "cds.Association",
+      "target": "sap.common.Timezones",
+      "keys": [
+        {
+          "ref": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "sap.common": {
+      "kind": "context"
+    },
+    "sap.common.Locale": {
+      "kind": "type",
+      "@title": "{i18n>LanguageCode}",
+      "type": "cds.String",
+      "length": 14
+    },
+    "sap.common.Languages": {
+      "kind": "entity",
+      "@cds.autoexpose": true,
+      "@cds.persistence.skip": "if-unused",
+      "@UI.Identification": [
+        {
+          "Value": {
+            "=": "name"
+          }
+        }
+      ],
+      "@cds.odata.valuelist": true,
+      "includes": [
+        "sap.common.CodeList"
+      ],
+      "elements": {
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@Common.Text": {
+            "=": "name"
+          },
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        },
+        "texts": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "sap.common.Languages.texts",
+          "on": [
+            {
+              "ref": [
+                "texts",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            }
+          ]
+        },
+        "localized": {
+          "type": "cds.Association",
+          "target": "sap.common.Languages.texts",
+          "on": [
+            {
+              "ref": [
+                "localized",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            },
+            "and",
+            {
+              "ref": [
+                "localized",
+                "locale"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$user",
+                "locale"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "sap.common.Countries": {
+      "kind": "entity",
+      "@cds.autoexpose": true,
+      "@cds.persistence.skip": "if-unused",
+      "@UI.Identification": [
+        {
+          "Value": {
+            "=": "name"
+          }
+        }
+      ],
+      "@cds.odata.valuelist": true,
+      "includes": [
+        "sap.common.CodeList"
+      ],
+      "elements": {
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@title": "{i18n>CountryCode}",
+          "@Common.Text": {
+            "=": "name"
+          },
+          "key": true,
+          "type": "cds.String",
+          "length": 3
+        },
+        "texts": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "sap.common.Countries.texts",
+          "on": [
+            {
+              "ref": [
+                "texts",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            }
+          ]
+        },
+        "localized": {
+          "type": "cds.Association",
+          "target": "sap.common.Countries.texts",
+          "on": [
+            {
+              "ref": [
+                "localized",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            },
+            "and",
+            {
+              "ref": [
+                "localized",
+                "locale"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$user",
+                "locale"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "sap.common.Currencies": {
+      "kind": "entity",
+      "@cds.autoexpose": true,
+      "@cds.persistence.skip": "if-unused",
+      "@UI.Identification": [
+        {
+          "Value": {
+            "=": "name"
+          }
+        }
+      ],
+      "@cds.odata.valuelist": true,
+      "includes": [
+        "sap.common.CodeList"
+      ],
+      "elements": {
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@title": "{i18n>CurrencyCode}",
+          "@Common.Text": {
+            "=": "name"
+          },
+          "key": true,
+          "type": "cds.String",
+          "length": 3
+        },
+        "symbol": {
+          "@title": "{i18n>CurrencySymbol}",
+          "type": "cds.String",
+          "length": 5
+        },
+        "minorUnit": {
+          "@title": "{i18n>CurrencyMinorUnit}",
+          "type": "cds.Int16"
+        },
+        "texts": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "sap.common.Currencies.texts",
+          "on": [
+            {
+              "ref": [
+                "texts",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            }
+          ]
+        },
+        "localized": {
+          "type": "cds.Association",
+          "target": "sap.common.Currencies.texts",
+          "on": [
+            {
+              "ref": [
+                "localized",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            },
+            "and",
+            {
+              "ref": [
+                "localized",
+                "locale"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$user",
+                "locale"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "sap.common.Timezones": {
+      "kind": "entity",
+      "@cds.autoexpose": true,
+      "@cds.persistence.skip": "if-unused",
+      "@UI.Identification": [
+        {
+          "Value": {
+            "=": "name"
+          }
+        }
+      ],
+      "@cds.odata.valuelist": true,
+      "includes": [
+        "sap.common.CodeList"
+      ],
+      "elements": {
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@title": "{i18n>TimeZoneCode}",
+          "key": true,
+          "type": "cds.String",
+          "length": 100
+        },
+        "texts": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "sap.common.Timezones.texts",
+          "on": [
+            {
+              "ref": [
+                "texts",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            }
+          ]
+        },
+        "localized": {
+          "type": "cds.Association",
+          "target": "sap.common.Timezones.texts",
+          "on": [
+            {
+              "ref": [
+                "localized",
+                "code"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "code"
+              ]
+            },
+            "and",
+            {
+              "ref": [
+                "localized",
+                "locale"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$user",
+                "locale"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "sap.common.CodeList": {
+      "kind": "aspect",
+      "@cds.autoexpose": true,
+      "@cds.persistence.skip": "if-unused",
+      "@UI.Identification": [
+        {
+          "Value": {
+            "=": "name"
+          }
+        }
+      ],
+      "@cds.odata.valuelist": true,
+      "elements": {
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": true,
+          "type": "cds.String",
+          "length": 1000
+        }
+      }
+    },
+    "sap.common.TextsAspect": {
+      "kind": "aspect",
+      "elements": {
+        "locale": {
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        }
+      }
+    },
+    "sap.common.FlowHistory": {
+      "kind": "aspect",
+      "@cds.persistence.skip": "if-unused",
+      "elements": {
+        "transitions_": {
+          "@odata.draft.enabled": false,
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "targetAspect": {
+            "elements": {
+              "timestamp": {
+                "@cds.on.insert": {
+                  "=": "$now"
+                },
+                "@UI.HiddenFilter": true,
+                "@UI.ExcludeFromNavigationContext": true,
+                "@Core.Immutable": true,
+                "@title": "{i18n>CreatedAt}",
+                "@readonly": true,
+                "key": true,
+                "type": {
+                  "ref": [
+                    "managed",
+                    "createdAt"
+                  ]
+                }
+              },
+              "user": {
+                "@cds.on.insert": {
+                  "=": "$user"
+                },
+                "@UI.HiddenFilter": true,
+                "@UI.ExcludeFromNavigationContext": true,
+                "@Core.Immutable": true,
+                "@title": "{i18n>CreatedBy}",
+                "@readonly": true,
+                "@description": "{i18n>UserID.Description}",
+                "type": {
+                  "ref": [
+                    "managed",
+                    "createdBy"
+                  ]
+                },
+                "length": 255
+              },
+              "status": {
+                "type": "cds.String"
+              },
+              "comment": {
+                "type": "cds.String"
+              }
+            }
+          }
+        }
+      }
+    },
+    "cuid": {
+      "kind": "aspect",
+      "elements": {
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        }
+      }
+    },
+    "managed": {
+      "kind": "aspect",
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        }
+      }
+    },
+    "temporal": {
+      "kind": "aspect",
+      "elements": {
+        "validFrom": {
+          "@cds.valid.from": true,
+          "type": "cds.Timestamp"
+        },
+        "validTo": {
+          "@cds.valid.to": true,
+          "type": "cds.Timestamp"
+        }
+      }
+    },
+    "User": {
+      "kind": "type",
+      "@title": "{i18n>UserID}",
+      "@description": "{i18n>UserID.Description}",
+      "type": "cds.String",
+      "length": 255
+    },
+    "sap.common.Languages.texts": {
+      "kind": "entity",
+      "@odata.draft.enabled": false,
+      "includes": [
+        "sap.common.TextsAspect"
+      ],
+      "elements": {
+        "locale": {
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        },
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@odata.containment.ignore": true,
+          "@Common.Text": {
+            "=": "name"
+          },
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        }
+      }
+    },
+    "sap.common.Countries.texts": {
+      "kind": "entity",
+      "@odata.draft.enabled": false,
+      "includes": [
+        "sap.common.TextsAspect"
+      ],
+      "elements": {
+        "locale": {
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        },
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@odata.containment.ignore": true,
+          "@title": "{i18n>CountryCode}",
+          "@Common.Text": {
+            "=": "name"
+          },
+          "key": true,
+          "type": "cds.String",
+          "length": 3
+        }
+      }
+    },
+    "sap.common.Currencies.texts": {
+      "kind": "entity",
+      "@odata.draft.enabled": false,
+      "includes": [
+        "sap.common.TextsAspect"
+      ],
+      "elements": {
+        "locale": {
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        },
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@odata.containment.ignore": true,
+          "@title": "{i18n>CurrencyCode}",
+          "@Common.Text": {
+            "=": "name"
+          },
+          "key": true,
+          "type": "cds.String",
+          "length": 3
+        }
+      }
+    },
+    "sap.common.Timezones.texts": {
+      "kind": "entity",
+      "@odata.draft.enabled": false,
+      "includes": [
+        "sap.common.TextsAspect"
+      ],
+      "elements": {
+        "locale": {
+          "@title": "{i18n>LanguageCode}",
+          "key": true,
+          "type": "sap.common.Locale",
+          "length": 14
+        },
+        "name": {
+          "@title": "{i18n>Name}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 255
+        },
+        "descr": {
+          "@title": "{i18n>Description}",
+          "localized": null,
+          "type": "cds.String",
+          "length": 1000
+        },
+        "code": {
+          "@odata.containment.ignore": true,
+          "@title": "{i18n>TimeZoneCode}",
+          "key": true,
+          "type": "cds.String",
+          "length": 100
+        }
+      }
+    }
+  },
+  "meta": {
+    "creator": "CDS Compiler v6.9.1",
+    "compilerVersion": "6.9.1",
+    "compilerCsnFlavor": "inferred",
+    "flavor": "inferred"
+  },
+  "$version": "2.0"
+}

@@ -1,0 +1,162 @@
+{
+	"_version": "1.58.0",
+	"sap.app": {
+		"id": "com.mdasad.gatepass",
+		"type": "application",
+		"i18n": {
+			"bundleUrl": "i18n/i18n.properties",
+			"supportedLocales": [
+				"en"
+			],
+			"fallbackLocale": "en"
+		},
+		"title": "{{appTitle}}",
+		"description": "{{appDescription}}",
+		"applicationVersion": {
+			"version": "1.0.0"
+		},
+		"dataSources": {
+			"mainService": {
+				"uri": "/gatepass/",
+				"type": "OData",
+				"settings": {
+					"odataVersion": "4.0"
+				}
+			}
+		}
+	},
+	"sap.ui": {
+		"technology": "UI5",
+		"deviceTypes": {
+			"desktop": true,
+			"tablet": true,
+			"phone": true
+		},
+		"supportedThemes": [
+			"sap_horizon",
+			"sap_fiori_3"
+		]
+	},
+	"sap.ui5": {
+		"rootView": {
+			"viewName": "com.mdasad.gatepass.view.App",
+			"type": "XML",
+			"async": true,
+			"id": "app"
+		},
+		"dependencies": {
+			"minUI5Version": "1.120.0",
+			"libs": {
+				"sap.ui.core": {},
+				"sap.m": {},
+				"sap.ui.layout": {},
+				"sap.ui.table": {}
+			}
+		},
+		"contentDensities": {
+			"compact": true,
+			"cozy": true
+		},
+		"models": {
+			"i18n": {
+				"type": "sap.ui.model.resource.ResourceModel",
+				"settings": {
+					"bundleUrl": "i18n/i18n.properties",
+					"supportedLocales": [
+						"en"
+					],
+					"fallbackLocale": "en"
+				}
+			},
+			"": {
+				"type": "sap.ui.model.odata.v4.ODataModel",
+				"dataSource": "mainService",
+				"settings": {
+					"synchronizationMode": "None",
+					"operationMode": "Server",
+					"autoExpandSelect": true,
+					"earlyRequests": true
+				}
+			}
+		},
+		"resources": {
+			"css": [
+				{
+					"uri": "css/style.css"
+				}
+			]
+		},
+		"routing": {
+			"config": {
+				"routerClass": "sap.m.routing.Router",
+				"viewType": "XML",
+				"async": true,
+				"viewPath": "com.mdasad.gatepass.view",
+				"controlAggregation": "pages",
+				"controlId": "app",
+				"clearControlAggregation": false
+			},
+			"routes": [
+				{
+					"name": "Dashboard",
+					"pattern": "",
+					"target": [
+						"Dashboard"
+					]
+				},
+				{
+					"name": "GateEntryList",
+					"pattern": "gate-entry",
+					"target": [
+						"GateEntryList"
+					]
+				},
+				{
+					"name": "GatePassList",
+					"pattern": "gate-pass:?query:",
+					"target": [
+						"GatePassList"
+					]
+				},
+				{
+					"name": "GateExit",
+					"pattern": "gate-exit",
+					"target": [
+						"GateExit"
+					]
+				}
+			],
+			"targets": {
+				"Dashboard": {
+					"viewType": "XML",
+					"transition": "slide",
+					"clearControlAggregation": false,
+					"viewId": "Dashboard",
+					"viewName": "Dashboard"
+				},
+				"GateEntryList": {
+					"viewType": "XML",
+					"transition": "slide",
+					"clearControlAggregation": false,
+					"viewId": "GateEntryList",
+					"viewName": "GateEntryList"
+				},
+				"GatePassList": {
+					"viewType": "XML",
+					"transition": "slide",
+					"clearControlAggregation": false,
+					"viewId": "GatePassList",
+					"viewName": "GatePassList"
+				},
+				"GateExit": {
+					"viewType": "XML",
+					"transition": "slide",
+					"clearControlAggregation": false,
+					"viewId": "GateExit",
+					"viewName": "GateExit"
+				}
+			}
+		},
+		"flexBundle": false
+	}
+}

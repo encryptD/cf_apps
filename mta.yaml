@@ -1,0 +1,108 @@
+_schema-version: "3.3.0"
+ID: gatepass
+version: 1.0.0
+description: Gate Pass CAP + UI5 app
+parameters:
+  deploy_mode: html5-repo
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+        - npx cds deploy --to sqlite:gen/srv/gatepass.db
+modules:
+  - name: gatepass-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      memory: 512M
+      disk-quota: 512M
+      command: npx cds-serve
+    properties:
+      SAP_JWT_TRUST_ACL: '[{"clientid":"*","identityzone":"*"}]'
+    provides:
+      - name: gatepass-srv-api
+        properties:
+          url: ${default-url}
+    requires:
+      - name: gatepass-uaa
+
+  - name: gatepass-app-router
+    type: approuter.nodejs
+    path: approuter
+    parameters:
+      memory: 256M
+      disk-quota: 256M
+      keep-existing-routes: true
+    properties:
+      XS_APP_LOG_LEVEL: info
+    requires:
+      - name: gatepass-uaa
+      - name: gatepass-destination
+      - name: gatepass-html5-runtime
+
+  - name: gatepass-ui-deployer
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: gatepass-html5-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - name: gatepass-ui
+          artifacts:
+            - gatepass-ui.zip
+          target-path: resources/
+
+  - name: gatepass-ui
+    type: html5
+    path: webapp
+    build-parameters:
+      builder: custom
+      commands:
+        - npx bestzip gatepass-ui.zip *
+      build-result: .
+      supported-platforms: []
+resources:
+  - name: gatepass-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: xs-security.json
+
+
+  - name: gatepass-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+      config:
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            destinations:
+              - Name: gatepass-srv-api
+                URL: ~{gatepass-srv-api/url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+            existing_destinations_policy: update
+    requires:
+      - name: gatepass-srv-api
+
+  - name: gatepass-html5-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+
+  - name: gatepass-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime

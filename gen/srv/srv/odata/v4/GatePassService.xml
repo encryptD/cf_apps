@@ -1,0 +1,813 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Alias="Capabilities" Namespace="Org.OData.Capabilities.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Common.xml">
+    <edmx:Include Alias="Common" Namespace="com.sap.vocabularies.Common.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Alias="Core" Namespace="Org.OData.Core.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/UI.xml">
+    <edmx:Include Alias="UI" Namespace="com.sap.vocabularies.UI.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Validation.V1.xml">
+    <edmx:Include Alias="Validation" Namespace="Org.OData.Validation.V1"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema Namespace="GatePassService" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <Annotation Term="Core.Links">
+        <Collection>
+          <Record>
+            <PropertyValue Property="rel" String="author"/>
+            <PropertyValue Property="href" String="https://cap.cloud.sap"/>
+          </Record>
+        </Collection>
+      </Annotation>
+      <EntityContainer Name="EntityContainer">
+        <EntitySet Name="Plants" EntityType="GatePassService.Plants"/>
+        <EntitySet Name="GateEntries" EntityType="GatePassService.GateEntries">
+          <NavigationPropertyBinding Path="gatePasses" Target="GatePasses"/>
+          <NavigationPropertyBinding Path="gateExit" Target="GateExit"/>
+        </EntitySet>
+        <EntitySet Name="GatePasses" EntityType="GatePassService.GatePasses">
+          <NavigationPropertyBinding Path="gateEntry" Target="GateEntries"/>
+          <NavigationPropertyBinding Path="items" Target="GatePassItems"/>
+        </EntitySet>
+        <EntitySet Name="GatePassItems" EntityType="GatePassService.GatePassItems">
+          <NavigationPropertyBinding Path="gatePass" Target="GatePasses"/>
+        </EntitySet>
+        <EntitySet Name="GateExit" EntityType="GatePassService.GateExit">
+          <NavigationPropertyBinding Path="gateEntry" Target="GateEntries"/>
+          <NavigationPropertyBinding Path="gatePass" Target="GatePasses"/>
+        </EntitySet>
+        <ActionImport Name="closeGateEntry" Action="GatePassService.closeGateEntry" EntitySet="GateEntries"/>
+        <ActionImport Name="saveGatePassData" Action="GatePassService.saveGatePassData" EntitySet="GateEntries"/>
+        <ActionImport Name="printGatePass" Action="GatePassService.printGatePass"/>
+        <FunctionImport Name="getPurchaseOrderDetails" Function="GatePassService.getPurchaseOrderDetails"/>
+        <FunctionImport Name="getSalesInvoiceDetails" Function="GatePassService.getSalesInvoiceDetails"/>
+      </EntityContainer>
+      <EntityType Name="Plants">
+        <Key>
+          <PropertyRef Name="plantCode"/>
+        </Key>
+        <Property Name="createdAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="modifiedAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="plantCode" Type="Edm.String" MaxLength="10" Nullable="false"/>
+        <Property Name="plantName" Type="Edm.String" MaxLength="100"/>
+        <Property Name="location" Type="Edm.String" MaxLength="200"/>
+        <Property Name="address" Type="Edm.String" MaxLength="250"/>
+      </EntityType>
+      <EntityType Name="GateEntries">
+        <Key>
+          <PropertyRef Name="ID"/>
+        </Key>
+        <Property Name="createdAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="modifiedAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+        <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="gateEntryYear" Type="Edm.Int32"/>
+        <Property Name="movementType" Type="Edm.String" Nullable="false"/>
+        <Property Name="documentStatus" Type="Edm.String" DefaultValue="OPEN"/>
+        <Property Name="entryStatus" Type="Edm.String" DefaultValue="CREATED"/>
+        <Property Name="plant" Type="Edm.String" MaxLength="10"/>
+        <Property Name="partyNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="partyName" Type="Edm.String" MaxLength="100"/>
+        <Property Name="referenceType" Type="Edm.String"/>
+        <Property Name="referenceNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="vehicleNumber" Type="Edm.String" MaxLength="20" Nullable="false"/>
+        <Property Name="vehicleType" Type="Edm.String" MaxLength="20" Nullable="false"/>
+        <Property Name="transporterNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="transporterName" Type="Edm.String" MaxLength="100" Nullable="false"/>
+        <Property Name="driverName" Type="Edm.String" MaxLength="100" Nullable="false"/>
+        <Property Name="driverContact" Type="Edm.String" MaxLength="20"/>
+        <Property Name="lrNumber" Type="Edm.String" MaxLength="50"/>
+        <Property Name="entryDate" Type="Edm.Date" Nullable="false"/>
+        <Property Name="entryTime" Type="Edm.TimeOfDay"/>
+        <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+        <Property Name="invoiceDate" Type="Edm.Date"/>
+        <Property Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Property Name="eWayBillNumber" Type="Edm.String" MaxLength="50"/>
+        <Property Name="eWayBillDate" Type="Edm.Date"/>
+        <Property Name="shippingAddress" Type="Edm.String" MaxLength="250"/>
+        <Property Name="passDate" Type="Edm.Date"/>
+        <Property Name="passTime" Type="Edm.TimeOfDay"/>
+        <Property Name="passRemarks" Type="Edm.String" MaxLength="500"/>
+        <Property Name="materialItemsJson" Type="Edm.String"/>
+        <NavigationProperty Name="gatePasses" Type="Collection(GatePassService.GatePasses)" Partner="gateEntry"/>
+        <NavigationProperty Name="gateExit" Type="GatePassService.GateExit" Partner="gateEntry">
+          <ReferentialConstraint Property="ID" ReferencedProperty="gateEntry_ID"/>
+        </NavigationProperty>
+      </EntityType>
+      <EntityType Name="GatePasses">
+        <Key>
+          <PropertyRef Name="ID"/>
+        </Key>
+        <Property Name="createdAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="modifiedAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+        <Property Name="gatePassNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="movementType" Type="Edm.String" Nullable="false"/>
+        <Property Name="documentStatus" Type="Edm.String" DefaultValue="OPEN"/>
+        <NavigationProperty Name="gateEntry" Type="GatePassService.GateEntries" Nullable="false" Partner="gatePasses">
+          <ReferentialConstraint Property="gateEntry_ID" ReferencedProperty="ID"/>
+        </NavigationProperty>
+        <Property Name="gateEntry_ID" Type="Edm.Guid" Nullable="false"/>
+        <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="referenceType" Type="Edm.String" MaxLength="10"/>
+        <Property Name="referenceNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="invoiceDate" Type="Edm.Date"/>
+        <Property Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Property Name="partyNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="partyName" Type="Edm.String" MaxLength="100"/>
+        <Property Name="eWayBillNumber" Type="Edm.String" MaxLength="50"/>
+        <Property Name="eWayBillDate" Type="Edm.Date"/>
+        <Property Name="shippingAddress" Type="Edm.String" MaxLength="250"/>
+        <Property Name="vehicleNumber" Type="Edm.String" MaxLength="20" Nullable="false"/>
+        <Property Name="vehicleType" Type="Edm.String" MaxLength="20"/>
+        <Property Name="transporterName" Type="Edm.String" MaxLength="100"/>
+        <Property Name="driverName" Type="Edm.String" MaxLength="100"/>
+        <Property Name="lrNumber" Type="Edm.String" MaxLength="50"/>
+        <Property Name="passDate" Type="Edm.Date" Nullable="false"/>
+        <Property Name="passTime" Type="Edm.TimeOfDay"/>
+        <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+        <NavigationProperty Name="items" Type="Collection(GatePassService.GatePassItems)" Partner="gatePass">
+          <OnDelete Action="Cascade"/>
+        </NavigationProperty>
+      </EntityType>
+      <EntityType Name="GatePassItems">
+        <Key>
+          <PropertyRef Name="ID"/>
+        </Key>
+        <Property Name="createdAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="modifiedAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+        <NavigationProperty Name="gatePass" Type="GatePassService.GatePasses" Partner="items">
+          <ReferentialConstraint Property="gatePass_ID" ReferencedProperty="ID"/>
+        </NavigationProperty>
+        <Property Name="gatePass_ID" Type="Edm.Guid"/>
+        <Property Name="itemNumber" Type="Edm.Int32"/>
+        <Property Name="materialCode" Type="Edm.String" MaxLength="40" Nullable="false"/>
+        <Property Name="materialDescription" Type="Edm.String" MaxLength="200" Nullable="false"/>
+        <Property Name="quantity" Type="Edm.Decimal" Precision="15" Scale="3" Nullable="false"/>
+        <Property Name="unitOfMeasure" Type="Edm.String" MaxLength="10"/>
+        <Property Name="supplierInvoiceNo" Type="Edm.String" MaxLength="50"/>
+        <Property Name="supplierInvoiceDate" Type="Edm.Date"/>
+        <Property Name="orderItemNumber" Type="Edm.String" MaxLength="10"/>
+      </EntityType>
+      <EntityType Name="GateExit">
+        <Key>
+          <PropertyRef Name="ID"/>
+        </Key>
+        <Property Name="createdAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="modifiedAt" Type="Edm.DateTimeOffset" Precision="7"/>
+        <Property Name="modifiedBy" Type="Edm.String" MaxLength="255"/>
+        <Property Name="ID" Type="Edm.Guid" Nullable="false"/>
+        <Property Name="gateExitNumber" Type="Edm.String" MaxLength="20"/>
+        <NavigationProperty Name="gateEntry" Type="GatePassService.GateEntries" Nullable="false" Partner="gateExit">
+          <ReferentialConstraint Property="gateEntry_ID" ReferencedProperty="ID"/>
+        </NavigationProperty>
+        <Property Name="gateEntry_ID" Type="Edm.Guid" Nullable="false"/>
+        <Property Name="gateEntryNumber" Type="Edm.String" MaxLength="20"/>
+        <NavigationProperty Name="gatePass" Type="GatePassService.GatePasses">
+          <ReferentialConstraint Property="gatePass_ID" ReferencedProperty="ID"/>
+        </NavigationProperty>
+        <Property Name="gatePass_ID" Type="Edm.Guid"/>
+        <Property Name="gatePassNumber" Type="Edm.String" MaxLength="20"/>
+        <Property Name="exitDate" Type="Edm.Date" Nullable="false"/>
+        <Property Name="exitTime" Type="Edm.TimeOfDay"/>
+        <Property Name="securityOfficer" Type="Edm.String" MaxLength="100"/>
+        <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
+      </EntityType>
+      <ComplexType Name="return_GatePassService_getPurchaseOrderDetails">
+        <Property Name="plant" Type="Edm.String"/>
+        <Property Name="supplierNumber" Type="Edm.String"/>
+        <Property Name="supplierName" Type="Edm.String"/>
+      </ComplexType>
+      <ComplexType Name="return_GatePassService_getSalesInvoiceDetails">
+        <Property Name="plant" Type="Edm.String"/>
+        <Property Name="customerNumber" Type="Edm.String"/>
+        <Property Name="customerName" Type="Edm.String"/>
+      </ComplexType>
+      <Action Name="closeGateEntry" IsBound="false">
+        <Parameter Name="gateEntryID" Type="Edm.Guid"/>
+        <Parameter Name="gatePassID" Type="Edm.Guid"/>
+        <ReturnType Type="GatePassService.GateEntries"/>
+      </Action>
+      <Action Name="saveGatePassData" IsBound="false">
+        <Parameter Name="gateEntryID" Type="Edm.Guid"/>
+        <Parameter Name="vehicleNumber" Type="Edm.String"/>
+        <Parameter Name="vehicleType" Type="Edm.String"/>
+        <Parameter Name="transporterName" Type="Edm.String"/>
+        <Parameter Name="driverName" Type="Edm.String"/>
+        <Parameter Name="lrNumber" Type="Edm.String"/>
+        <Parameter Name="invoiceDate" Type="Edm.Date"/>
+        <Parameter Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Parameter Name="eWayBillNumber" Type="Edm.String"/>
+        <Parameter Name="eWayBillDate" Type="Edm.Date"/>
+        <Parameter Name="shippingAddress" Type="Edm.String"/>
+        <Parameter Name="passDate" Type="Edm.Date"/>
+        <Parameter Name="passTime" Type="Edm.TimeOfDay"/>
+        <Parameter Name="remarks" Type="Edm.String"/>
+        <Parameter Name="itemsJson" Type="Edm.String" MaxLength="5000"/>
+        <ReturnType Type="GatePassService.GateEntries"/>
+      </Action>
+      <Action Name="printGatePass" IsBound="false">
+        <Parameter Name="gatePassID" Type="Edm.Guid"/>
+        <ReturnType Type="Edm.String"/>
+      </Action>
+      <Function Name="getPurchaseOrderDetails" IsBound="false" IsComposable="false">
+        <Parameter Name="poNumber" Type="Edm.String"/>
+        <ReturnType Type="GatePassService.return_GatePassService_getPurchaseOrderDetails"/>
+      </Function>
+      <Function Name="getSalesInvoiceDetails" IsBound="false" IsComposable="false">
+        <Parameter Name="invoiceNumber" Type="Edm.String"/>
+        <ReturnType Type="GatePassService.return_GatePassService_getSalesInvoiceDetails"/>
+      </Function>
+      <Annotations Target="GatePassService.EntityContainer/Plants">
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/createdAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/createdBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/modifiedAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/modifiedBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/plantCode">
+        <Annotation Term="Common.Label" String="Plant Code"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/plantName">
+        <Annotation Term="Common.Label" String="Plant Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/location">
+        <Annotation Term="Common.Label" String="Location"/>
+      </Annotations>
+      <Annotations Target="GatePassService.Plants/address">
+        <Annotation Term="Common.Label" String="Address"/>
+      </Annotations>
+      <Annotations Target="GatePassService.EntityContainer/GateEntries">
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/createdAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/createdBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/modifiedAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/modifiedBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/ID">
+        <Annotation Term="Core.ComputedDefaultValue" Bool="true"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/gateEntryNumber">
+        <Annotation Term="Common.Label" String="Gate Entry Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/gateEntryYear">
+        <Annotation Term="Common.Label" String="Gate Entry Year"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/movementType">
+        <Annotation Term="Common.Label" String="Movement Type"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Inward"/>
+              <PropertyValue Property="Value" String="I"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Outward"/>
+              <PropertyValue Property="Value" String="O"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/documentStatus">
+        <Annotation Term="Common.Label" String="Document Status"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Open"/>
+              <PropertyValue Property="Value" String="OPEN"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="InProgress"/>
+              <PropertyValue Property="Value" String="IN_PROGRESS"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Closed"/>
+              <PropertyValue Property="Value" String="CLOSED"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Cancelled"/>
+              <PropertyValue Property="Value" String="CANCELLED"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/entryStatus">
+        <Annotation Term="Common.Label" String="Entry Status"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Created"/>
+              <PropertyValue Property="Value" String="CREATED"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="PassIssued"/>
+              <PropertyValue Property="Value" String="PASS_ISSUED"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Exited"/>
+              <PropertyValue Property="Value" String="EXITED"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Cancelled"/>
+              <PropertyValue Property="Value" String="CANCELLED"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/plant">
+        <Annotation Term="Common.Label" String="Plant"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/partyNumber">
+        <Annotation Term="Common.Label" String="Party Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/partyName">
+        <Annotation Term="Common.Label" String="Party Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/referenceType">
+        <Annotation Term="Common.Label" String="Reference Type"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="PurchaseOrder"/>
+              <PropertyValue Property="Value" String="PO"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="SalesInvoice"/>
+              <PropertyValue Property="Value" String="SI"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/referenceNumber">
+        <Annotation Term="Common.Label" String="Reference Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/vehicleNumber">
+        <Annotation Term="Common.Label" String="Vehicle Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/vehicleType">
+        <Annotation Term="Common.Label" String="Vehicle Type"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/transporterNumber">
+        <Annotation Term="Common.Label" String="Transporter Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/transporterName">
+        <Annotation Term="Common.Label" String="Transporter Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/driverName">
+        <Annotation Term="Common.Label" String="Driver Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/driverContact">
+        <Annotation Term="Common.Label" String="Driver Contact"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/lrNumber">
+        <Annotation Term="Common.Label" String="LR Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/entryDate">
+        <Annotation Term="Common.Label" String="Entry Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/entryTime">
+        <Annotation Term="Common.Label" String="Entry Time"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/remarks">
+        <Annotation Term="Common.Label" String="Remarks"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/invoiceDate">
+        <Annotation Term="Common.Label" String="Invoice Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/invoiceValue">
+        <Annotation Term="Common.Label" String="Invoice Value"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/eWayBillNumber">
+        <Annotation Term="Common.Label" String="E-Way Bill Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/eWayBillDate">
+        <Annotation Term="Common.Label" String="E-Way Bill Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/shippingAddress">
+        <Annotation Term="Common.Label" String="Shipping Address"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/passDate">
+        <Annotation Term="Common.Label" String="Pass Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/passTime">
+        <Annotation Term="Common.Label" String="Pass Time"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/passRemarks">
+        <Annotation Term="Common.Label" String="Pass Remarks"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateEntries/materialItemsJson">
+        <Annotation Term="Common.Label" String="Material Items JSON"/>
+      </Annotations>
+      <Annotations Target="GatePassService.EntityContainer/GatePasses">
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/createdAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/createdBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/modifiedAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/modifiedBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/ID">
+        <Annotation Term="Core.ComputedDefaultValue" Bool="true"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/gatePassNumber">
+        <Annotation Term="Common.Label" String="Gate Pass Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/movementType">
+        <Annotation Term="Common.Label" String="Movement Type"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Inward"/>
+              <PropertyValue Property="Value" String="I"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Outward"/>
+              <PropertyValue Property="Value" String="O"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/documentStatus">
+        <Annotation Term="Common.Label" String="Document Status"/>
+        <Annotation Term="Validation.AllowedValues">
+          <Collection>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Open"/>
+              <PropertyValue Property="Value" String="OPEN"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="InProgress"/>
+              <PropertyValue Property="Value" String="IN_PROGRESS"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Closed"/>
+              <PropertyValue Property="Value" String="CLOSED"/>
+            </Record>
+            <Record Type="Validation.AllowedValue">
+              <Annotation Term="Core.SymbolicName" String="Cancelled"/>
+              <PropertyValue Property="Value" String="CANCELLED"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/gateEntry">
+        <Annotation Term="Common.Label" String="Gate Entry"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/gateEntry_ID">
+        <Annotation Term="Common.Label" String="Gate Entry"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/gateEntryNumber">
+        <Annotation Term="Common.Label" String="Gate Entry Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/referenceType">
+        <Annotation Term="Common.Label" String="Reference Type"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/referenceNumber">
+        <Annotation Term="Common.Label" String="Reference Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/invoiceDate">
+        <Annotation Term="Common.Label" String="Invoice Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/invoiceValue">
+        <Annotation Term="Common.Label" String="Invoice Value"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/partyNumber">
+        <Annotation Term="Common.Label" String="Party Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/partyName">
+        <Annotation Term="Common.Label" String="Party Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/eWayBillNumber">
+        <Annotation Term="Common.Label" String="E-Way Bill Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/eWayBillDate">
+        <Annotation Term="Common.Label" String="E-Way Bill Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/shippingAddress">
+        <Annotation Term="Common.Label" String="Shipping Address"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/vehicleNumber">
+        <Annotation Term="Common.Label" String="Vehicle Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/vehicleType">
+        <Annotation Term="Common.Label" String="Vehicle Type"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/transporterName">
+        <Annotation Term="Common.Label" String="Transporter Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/driverName">
+        <Annotation Term="Common.Label" String="Driver Name"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/lrNumber">
+        <Annotation Term="Common.Label" String="LR Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/passDate">
+        <Annotation Term="Common.Label" String="Pass Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/passTime">
+        <Annotation Term="Common.Label" String="Pass Time"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePasses/remarks">
+        <Annotation Term="Common.Label" String="Remarks"/>
+      </Annotations>
+      <Annotations Target="GatePassService.EntityContainer/GatePassItems">
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="true"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/createdAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/createdBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/modifiedAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/modifiedBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/ID">
+        <Annotation Term="Core.ComputedDefaultValue" Bool="true"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/gatePass">
+        <Annotation Term="Common.Label" String="Gate Pass"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/gatePass_ID">
+        <Annotation Term="Common.Label" String="Gate Pass"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/itemNumber">
+        <Annotation Term="Common.Label" String="Item Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/materialCode">
+        <Annotation Term="Common.Label" String="Material Code"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/materialDescription">
+        <Annotation Term="Common.Label" String="Material Description"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/quantity">
+        <Annotation Term="Common.Label" String="Quantity"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/unitOfMeasure">
+        <Annotation Term="Common.Label" String="Unit of Measure"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/supplierInvoiceNo">
+        <Annotation Term="Common.Label" String="Supplier Invoice No"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/supplierInvoiceDate">
+        <Annotation Term="Common.Label" String="Supplier Invoice Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/orderItemNumber">
+        <Annotation Term="Common.Label" String="Order Item Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.EntityContainer/GateExit">
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/createdAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/createdBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Immutable" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>CreatedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/modifiedAt">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedAt}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/modifiedBy">
+        <Annotation Term="UI.HiddenFilter" Bool="true"/>
+        <Annotation Term="UI.ExcludeFromNavigationContext" Bool="true"/>
+        <Annotation Term="Core.Computed" Bool="true"/>
+        <Annotation Term="Core.Description" String="{i18n>UserID.Description}"/>
+        <Annotation Term="Common.Label" String="{i18n>ChangedBy}"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/ID">
+        <Annotation Term="Core.ComputedDefaultValue" Bool="true"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gateExitNumber">
+        <Annotation Term="Common.Label" String="Gate Exit Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gateEntry">
+        <Annotation Term="Common.Label" String="Gate Entry"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gateEntry_ID">
+        <Annotation Term="Common.Label" String="Gate Entry"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gateEntryNumber">
+        <Annotation Term="Common.Label" String="Gate Entry Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gatePass">
+        <Annotation Term="Common.Label" String="Gate Pass"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gatePass_ID">
+        <Annotation Term="Common.Label" String="Gate Pass"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/gatePassNumber">
+        <Annotation Term="Common.Label" String="Gate Pass Number"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/exitDate">
+        <Annotation Term="Common.Label" String="Exit Date"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/exitTime">
+        <Annotation Term="Common.Label" String="Exit Time"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/securityOfficer">
+        <Annotation Term="Common.Label" String="Security Officer"/>
+      </Annotations>
+      <Annotations Target="GatePassService.GateExit/remarks">
+        <Annotation Term="Common.Label" String="Remarks"/>
+      </Annotations>
+      <Annotations Target="GatePassService.getPurchaseOrderDetails(Edm.String)/poNumber">
+        <Annotation Term="Core.OptionalParameter">
+          <Record Type="Core.OptionalParameterType"/>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.getSalesInvoiceDetails(Edm.String)/invoiceNumber">
+        <Annotation Term="Core.OptionalParameter">
+          <Record Type="Core.OptionalParameterType"/>
+        </Annotation>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

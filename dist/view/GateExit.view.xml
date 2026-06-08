@@ -1,0 +1,91 @@
+<mvc:View
+    controllerName="com.mdasad.gatepass.controller.GateExit"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:core="sap.ui.core">
+
+    <Page
+        id="gateExitPage"
+        title="{i18n>gateExitTitle}"
+        showNavButton="true"
+        navButtonPress=".onNavBack">
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <form:SimpleForm
+                    id="gateExitForm"
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanM="4"
+                    columnsM="2"
+                    title="{i18n>exitDetails}">
+
+                    <form:content>
+                        <core:Title text="{i18n>gateEntryInfo}"/>
+
+                        <Label text="{i18n>gateEntryNumber}" required="true"/>
+                        <ComboBox
+                            id="exitGateEntryCombo"
+                            items="{exit>/passIssuedEntries}"
+                            change=".onGateEntryChange"
+                            selectionChange=".onGateEntryChange"
+                            placeholder="{i18n>selectGateEntry}">
+                            <items>
+                                <core:Item key="{exit>ID}" text="{exit>gateEntryNumber} - {exit>vehicleNumber} - {exit>partyName}"/>
+                            </items>
+                        </ComboBox>
+
+                        <core:Title text="{i18n>gatePassInfo}"/>
+
+                        <Label text="{i18n>gatePassNumber}"/>
+                        <ComboBox
+                            id="exitGatePassCombo"
+                            items="{exit>/gatePasses}"
+                            change=".onGatePassChange"
+                            selectionChange=".onGatePassChange"
+                            placeholder="{i18n>selectGatePass}">
+                            <items>
+                                <core:Item key="{exit>ID}" text="{exit>gatePassNumber}"/>
+                            </items>
+                        </ComboBox>
+
+                        <core:Title text="{i18n>exitTimestamps}"/>
+
+                        <Label text="{i18n>exitDate}"/>
+                        <DatePicker value="{exit>/exitDate}" editable="false"/>
+
+                        <Label text="{i18n>exitTime}"/>
+                        <TimePicker value="{exit>/exitTime}" editable="false"/>
+
+                        <core:Title text="{i18n>securityInfo}"/>
+
+                        <Label text="{i18n>securityOfficer}"/>
+                        <Input value="{exit>/securityOfficer}"/>
+
+                        <Label text="{i18n>remarks}"/>
+                        <TextArea value="{exit>/remarks}" rows="3"/>
+                    </form:content>
+                </form:SimpleForm>
+            </VBox>
+        </content>
+
+        <footer>
+            <Bar>
+                <contentRight>
+                    <Button
+                        id="closeButton"
+                        text="{i18n>closeEntry}"
+                        type="Emphasized"
+                        press=".onClosePress"/>
+                    <Button
+                        id="clearExitButton"
+                        text="{i18n>clear}"
+                        press=".onCancelPress"/>
+                </contentRight>
+            </Bar>
+        </footer>
+    </Page>
+
+</mvc:View>
