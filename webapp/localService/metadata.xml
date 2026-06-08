@@ -75,9 +75,8 @@
                 <Property Name="materialCode" Type="Edm.String" MaxLength="40" Nullable="false"/>
                 <Property Name="materialDescription" Type="Edm.String" MaxLength="200" Nullable="false"/>
                 <Property Name="quantity" Type="Edm.Decimal" Precision="15" Scale="3" Nullable="false"/>
+                <Property Name="challanQuantity" Type="Edm.Decimal" Precision="15" Scale="3"/>
                 <Property Name="unitOfMeasure" Type="Edm.String" MaxLength="10"/>
-                <Property Name="supplierInvoiceNo" Type="Edm.String" MaxLength="50"/>
-                <Property Name="supplierInvoiceDate" Type="Edm.Date"/>
                 <Property Name="orderItemNumber" Type="Edm.String" MaxLength="10"/>
                 <Property Name="createdAt" Type="Edm.DateTimeOffset"/>
                 <Property Name="createdBy" Type="Edm.String" MaxLength="255"/>

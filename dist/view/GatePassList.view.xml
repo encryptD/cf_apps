@@ -18,17 +18,25 @@
                 <!-- Gate Entry Selection -->
                 <VBox class="sapUiSmallMarginBottom">
                     <Title text="{i18n>gateEntryLink}" level="H5"/>
-                    <Label text="{i18n>gateEntryNumber}" required="true"/>
-                    <ComboBox
-                        id="gateEntryCombo"
-                        items="{pass>/gateEntries}"
-                        change=".onGateEntryChange"
-                        selectionChange=".onGateEntryChange"
-                        placeholder="{i18n>selectGateEntry}">
-                        <items>
-                            <core:Item key="{pass>ID}" text="{pass>gateEntryNumber} - {pass>vehicleNumber} - {pass>partyName}"/>
-                        </items>
-                    </ComboBox>
+                    <HBox alignItems="End" justifyContent="SpaceBetween">
+                        <VBox width="80%">
+                            <Label text="{i18n>gateEntryNumber}" required="true"/>
+                            <ComboBox
+                                id="gateEntryCombo"
+                                items="{pass>/gateEntries}"
+                                change=".onGateEntryChange"
+                                selectionChange=".onGateEntryChange"
+                                placeholder="{i18n>selectGateEntry}">
+                                <items>
+                                    <core:Item key="{pass>ID}" text="{pass>gateEntryNumber} - {pass>vehicleNumber} - {pass>partyName}"/>
+                                </items>
+                            </ComboBox>
+                        </VBox>
+                        <Button
+                            id="goodsReceiptButton"
+                            text="{i18n>goodsReceipt}"
+                            enabled="false"/>
+                    </HBox>
                 </VBox>
 
                 <!-- Pass Details Form -->
@@ -139,9 +147,15 @@
                                 </t:template>
                             </t:Column>
                             <t:Column width="6rem">
-                                <Label text="{i18n>quantity}" required="true"/>
+                                <Label text="{i18n>orderQuantity}" required="true"/>
                                 <t:template>
                                     <Input value="{pass>quantity}" type="Number"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem">
+                                <Label text="{i18n>challanQuantity}"/>
+                                <t:template>
+                                    <Input value="{pass>challanQuantity}" type="Number"/>
                                 </t:template>
                             </t:Column>
                             <t:Column width="4rem">
@@ -150,19 +164,7 @@
                                     <Input value="{pass>unitOfMeasure}"/>
                                 </t:template>
                             </t:Column>
-                            <t:Column width="8rem">
-                                <Label text="{i18n>supplierInvoiceNo}"/>
-                                <t:template>
-                                    <Input value="{pass>supplierInvoiceNo}"/>
-                                </t:template>
-                            </t:Column>
-                            <t:Column width="8rem">
-                                <Label text="{i18n>supplierInvoiceDate}"/>
-                                <t:template>
-                                    <DatePicker dateValue="{pass>supplierInvoiceDate}" displayFormat="dd-MMM-yyyy"/>
-                                </t:template>
-                            </t:Column>
-                            <t:Column width="5rem">
+                            <t:Column width="5rem" visible="false">
                                 <Label text="{i18n>orderItem}"/>
                                 <t:template>
                                     <Input value="{pass>orderItemNumber}"/>
