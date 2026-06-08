@@ -27,12 +27,38 @@
                         <SegmentedButtonItem text="{i18n>cancel}" key="cancel"/>
                     </items>
                 </SegmentedButton>
+                <VBox
+                    class="sapUiSmallMarginBottom"
+                    visible="{= ${entry>/modeKey} !== 'create' }">
+                    <Title text="{i18n>gateEntryLink}" level="H5"/>
+                    <Label text="{i18n>gateEntryNumber}" required="true"/>
+                    <ComboBox
+                        id="gateEntrySelectionCombo"
+                        items="{entry>/gateEntries}"
+                        selectedKey="{entry>/selectedGateEntryId}"
+                        change=".onGateEntrySelect"
+                        selectionChange=".onGateEntrySelect"
+                        placeholder="{i18n>selectGateEntry}">
+                        <items>
+                            <core:Item key="{entry>ID}" text="{entry>gateEntryNumber} - {entry>vehicleNumber} - {entry>partyName}"/>
+                        </items>
+                    </ComboBox>
+                </VBox>
+
+                <HBox
+                    class="sapUiSmallMarginBottom"
+                    visible="{entry>/showStatusHeader}"
+                    alignItems="Center">
+                    <Label text="{i18n>status}" class="sapUiTinyMarginEnd"/>
+                    <Title text="{entry>/entryStatus}" level="H5"/>
+                </HBox>
 
                 <!-- Movement Type Radio -->
                 <VBox class="sapUiSmallMarginBottom">
                     <Title text="{i18n>movementType}" level="H5"/>
                     <RadioButtonGroup
                         id="movementTypeGroup"
+                        enabled="{entry>/isFormEditable}"
                         selectedIndex="{entry>/movementType === 'I' ? 0 : 1}"
                         select=".onMovementTypeChange">
                         <buttons>
@@ -70,6 +96,7 @@
                         <ComboBox
                             id="poNoCombo"
                             items="{po>/poList}"
+                            enabled="{entry>/isFormEditable}"
                             selectedKey="{entry>/poNo}"
                             change=".onPONoChange"
                             placeholder="{i18n>enterPONumber}">
@@ -93,27 +120,29 @@
                         <Label text="{i18n>vehicleNumber}" required="true"/>
                         <Input
                             id="vehicleNumberInput"
-                            value="{entry>/vehicleNumber}"/>
+                            value="{entry>/vehicleNumber}"
+                            editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>vehicleType}" required="true"/>
-                        <Input id="vehicleTypeInput" value="{entry>/vehicleType}"/>
+                        <Input id="vehicleTypeInput" value="{entry>/vehicleType}" editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>driverName}" required="true"/>
-                        <Input id="driverNameInput" value="{entry>/driverName}"/>
+                        <Input id="driverNameInput" value="{entry>/driverName}" editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>transporterName}" required="true"/>
                         <Input
                             id="transporterNameInput"
-                            value="{entry>/transporterName}"/>
+                            value="{entry>/transporterName}"
+                            editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>transporterNumber}"/>
-                        <Input value="{entry>/transporterNumber}"/>
+                        <Input value="{entry>/transporterNumber}" editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>driverContact}"/>
-                        <Input value="{entry>/driverContact}"/>
+                        <Input value="{entry>/driverContact}" editable="{entry>/isFormEditable}"/>
 
                         <Label text="{i18n>lrNumber}"/>
-                        <Input value="{entry>/lrNumber}"/>
+                        <Input value="{entry>/lrNumber}" editable="{entry>/isFormEditable}"/>
 
                         <core:Title text="{i18n>entryTimestamps}"/>
 
@@ -121,17 +150,19 @@
                         <DatePicker
                             id="entryDatePicker"
                             dateValue="{entry>/entryDate}"
+                            enabled="{entry>/isFormEditable}"
                             displayFormat="dd-MMM-yyyy"/>
 
                         <Label text="{i18n>entryTime}"/>
                         <TimePicker
                             id="entryTimePicker"
-                            dateValue="{entry>/entryTime}"/>
+                            dateValue="{entry>/entryTime}"
+                            enabled="{entry>/isFormEditable}"/>
 
                         <core:Title text="{i18n>additionalInfo}"/>
 
                         <Label text="{i18n>remarks}"/>
-                        <TextArea value="{entry>/remarks}" rows="3"/>
+                        <TextArea value="{entry>/remarks}" rows="3" editable="{entry>/isFormEditable}"/>
                     </form:content>
                 </form:SimpleForm>
             </VBox>
@@ -144,6 +175,7 @@
                         id="saveButton"
                         text="{i18n>save}"
                         type="Emphasized"
+                        visible="{= ${entry>/modeKey} !== 'display' }"
                         press=".onSavePress"/>
                     <Button
                         id="cancelButton"
