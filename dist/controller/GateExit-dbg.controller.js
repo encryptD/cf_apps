@@ -8,16 +8,87 @@ sap.ui.define([
 
     return Controller.extend("com.mdasad.gatepass.controller.GateExit", {
 
+        _getCurrentTimeDate: function () {
+            return new Date();
+        },
+
+        _fromEdmDate: function (vValue) {
+            if (!vValue) {
+                return null;
+            }
+            if (vValue instanceof Date && !Number.isNaN(vValue.getTime())) {
+                return vValue;
+            }
+            if (typeof vValue === "string") {
+                var oDate = new Date(vValue);
+                if (!Number.isNaN(oDate.getTime())) {
+                    return oDate;
+                }
+            }
+            return null;
+        },
+
+        _fromEdmTime: function (vValue) {
+            if (!vValue) {
+                return null;
+            }
+            if (vValue instanceof Date && !Number.isNaN(vValue.getTime())) {
+                return vValue;
+            }
+            if (typeof vValue === "string") {
+                var aParts = vValue.split(":");
+                if (aParts.length >= 2) {
+                    var oDate = new Date();
+                    oDate.setHours(parseInt(aParts[0], 10), parseInt(aParts[1], 10), parseInt(aParts[2] || "0", 10), 0);
+                    return oDate;
+                }
+            }
+            return null;
+        },
+
+        _parseItemsJson: function (sItemsJson) {
+            if (!sItemsJson) {
+                return [];
+            }
+            try {
+                var aItems = JSON.parse(sItemsJson);
+                return Array.isArray(aItems) ? aItems : [];
+            } catch (e) {
+                return [];
+            }
+        },
+
         onInit: function () {
             var oModel = new JSONModel({
+                modeKey: "create",
+                isDisplayMode: false,
+                movementType: "I",
                 gateEntry_ID: "",
                 gateEntryNumber: "",
                 gatePass_ID: "",
                 gatePassNumber: "",
                 exitDate: new Date(),
-                exitTime: null,
+                exitTime: this._getCurrentTimeDate(),
                 securityOfficer: "",
-                remarks: ""
+                remarks: "",
+                referenceType: "",
+                referenceNumber: "",
+                partyNumber: "",
+                partyName: "",
+                invoiceDate: null,
+                invoiceValue: "",
+                eWayBillNumber: "",
+                eWayBillDate: null,
+                shippingAddress: "",
+                vehicleNumber: "",
+                vehicleType: "",
+                transporterName: "",
+                driverName: "",
+                lrNumber: "",
+                passDate: null,
+                passTime: null,
+                passRemarks: "",
+                items: []
             });
             this.getView().setModel(oModel, "exit");
 
@@ -31,14 +102,43 @@ sap.ui.define([
 
         _clearForm: function () {
             var oModel = this.getView().getModel("exit");
+            oModel.setProperty("/modeKey", "create");
+            oModel.setProperty("/isDisplayMode", false);
+            oModel.setProperty("/movementType", "I");
             oModel.setProperty("/gateEntry_ID", "");
             oModel.setProperty("/gateEntryNumber", "");
             oModel.setProperty("/gatePass_ID", "");
             oModel.setProperty("/gatePassNumber", "");
             oModel.setProperty("/exitDate", new Date());
-            oModel.setProperty("/exitTime", null);
+            oModel.setProperty("/exitTime", this._getCurrentTimeDate());
             oModel.setProperty("/securityOfficer", "");
             oModel.setProperty("/remarks", "");
+            oModel.setProperty("/referenceType", "");
+            oModel.setProperty("/referenceNumber", "");
+            oModel.setProperty("/partyNumber", "");
+            oModel.setProperty("/partyName", "");
+            oModel.setProperty("/invoiceDate", null);
+            oModel.setProperty("/invoiceValue", "");
+            oModel.setProperty("/eWayBillNumber", "");
+            oModel.setProperty("/eWayBillDate", null);
+            oModel.setProperty("/shippingAddress", "");
+            oModel.setProperty("/vehicleNumber", "");
+            oModel.setProperty("/vehicleType", "");
+            oModel.setProperty("/transporterName", "");
+            oModel.setProperty("/driverName", "");
+            oModel.setProperty("/lrNumber", "");
+            oModel.setProperty("/passDate", null);
+            oModel.setProperty("/passTime", null);
+            oModel.setProperty("/passRemarks", "");
+            oModel.setProperty("/items", []);
+            oModel.setProperty("/gatePasses", []);
+        },
+
+        onModeChange: function (oEvent) {
+            var sModeKey = oEvent.getParameter("item").getKey();
+            var oModel = this.getView().getModel("exit");
+            oModel.setProperty("/modeKey", sModeKey);
+            oModel.setProperty("/isDisplayMode", sModeKey === "display");
         },
 
         _loadPassIssuedEntries: function () {
@@ -62,6 +162,29 @@ sap.ui.define([
                 oModel.setProperty("/passIssuedEntries", []);
                 MessageToast.show("Could not load Gate Entries");
             });
+        },
+
+        _applyGateEntrySnapshot: function (oEntry) {
+            var oModel = this.getView().getModel("exit");
+            oModel.setProperty("/movementType", oEntry.movementType || "I");
+            oModel.setProperty("/referenceType", oEntry.referenceType || "");
+            oModel.setProperty("/referenceNumber", oEntry.referenceNumber || "");
+            oModel.setProperty("/partyNumber", oEntry.partyNumber || "");
+            oModel.setProperty("/partyName", oEntry.partyName || "");
+            oModel.setProperty("/invoiceDate", this._fromEdmDate(oEntry.invoiceDate));
+            oModel.setProperty("/invoiceValue", oEntry.invoiceValue != null ? String(oEntry.invoiceValue) : "");
+            oModel.setProperty("/eWayBillNumber", oEntry.eWayBillNumber || "");
+            oModel.setProperty("/eWayBillDate", this._fromEdmDate(oEntry.eWayBillDate));
+            oModel.setProperty("/shippingAddress", oEntry.shippingAddress || "");
+            oModel.setProperty("/vehicleNumber", oEntry.vehicleNumber || "");
+            oModel.setProperty("/vehicleType", oEntry.vehicleType || "");
+            oModel.setProperty("/transporterName", oEntry.transporterName || "");
+            oModel.setProperty("/driverName", oEntry.driverName || "");
+            oModel.setProperty("/lrNumber", oEntry.lrNumber || "");
+            oModel.setProperty("/passDate", this._fromEdmDate(oEntry.passDate));
+            oModel.setProperty("/passTime", this._fromEdmTime(oEntry.passTime));
+            oModel.setProperty("/passRemarks", oEntry.passRemarks || "");
+            oModel.setProperty("/items", this._parseItemsJson(oEntry.materialItemsJson));
         },
 
         _loadGatePassesForEntry: function (sGateEntryID, sGateEntryNumber) {
@@ -126,6 +249,9 @@ sap.ui.define([
 
             oModel.setProperty("/gateEntry_ID", sSelectedKey);
             oModel.setProperty("/gateEntryNumber", sGateEntryNumber);
+            if (oSelectedEntry) {
+                this._applyGateEntrySnapshot(oSelectedEntry);
+            }
             this._loadGatePassesForEntry(sSelectedKey, sGateEntryNumber);
         },
 
@@ -139,6 +265,15 @@ sap.ui.define([
             var oModel = this.getView().getModel("exit");
             oModel.setProperty("/gatePass_ID", sSelectedKey);
             oModel.setProperty("/gatePassNumber", oSelectedItem?.getText() || (oSource && oSource.getValue ? oSource.getValue() : ""));
+        },
+
+        formatReferenceType: function (sMovementType) {
+            var oI18nModel = this.getView().getModel("i18n") || this.getOwnerComponent().getModel("i18n");
+            if (!oI18nModel) {
+                return sMovementType === "I" ? "Purchase Order" : "Sales Invoice";
+            }
+            var oBundle = oI18nModel.getResourceBundle();
+            return sMovementType === "I" ? oBundle.getText("purchaseOrder") : oBundle.getText("salesInvoice");
         },
 
         onClosePress: function () {

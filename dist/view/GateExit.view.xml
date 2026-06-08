@@ -3,7 +3,8 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:form="sap.ui.layout.form"
-    xmlns:core="sap.ui.core">
+    xmlns:core="sap.ui.core"
+    xmlns:t="sap.ui.table">
 
     <Page
         id="gateExitPage"
@@ -13,6 +14,26 @@
 
         <content>
             <VBox class="sapUiSmallMargin">
+                <SegmentedButton
+                    id="exitModeSelection"
+                    selectedKey="{exit>/modeKey}"
+                    class="sapUiSmallMarginBottom"
+                    selectionChange=".onModeChange">
+                    <items>
+                        <SegmentedButtonItem text="{i18n>create}" key="create"/>
+                        <SegmentedButtonItem text="{i18n>display}" key="display"/>
+                    </items>
+                </SegmentedButton>
+
+                <VBox class="sapUiSmallMarginBottom gateExitWatermarkHeader">
+                    <Title text="{i18n>movementType}" level="H5"/>
+                    <RadioButtonGroup selectedIndex="{= ${exit>/movementType} === 'I' ? 0 : 1 }" enabled="false">
+                        <buttons>
+                            <RadioButton text="{i18n>inward}"/>
+                            <RadioButton text="{i18n>outward}"/>
+                        </buttons>
+                    </RadioButtonGroup>
+                </VBox>
 
                 <form:SimpleForm
                     id="gateExitForm"
@@ -54,20 +75,124 @@
                         <core:Title text="{i18n>exitTimestamps}"/>
 
                         <Label text="{i18n>exitDate}"/>
-                        <DatePicker value="{exit>/exitDate}" editable="false"/>
+                        <DatePicker dateValue="{exit>/exitDate}" editable="false"/>
 
                         <Label text="{i18n>exitTime}"/>
-                        <TimePicker value="{exit>/exitTime}" editable="false"/>
+                        <TimePicker dateValue="{exit>/exitTime}" editable="false"/>
 
                         <core:Title text="{i18n>securityInfo}"/>
 
                         <Label text="{i18n>securityOfficer}"/>
-                        <Input value="{exit>/securityOfficer}"/>
+                        <Input value="{exit>/securityOfficer}" editable="{= !${exit>/isDisplayMode} }"/>
 
                         <Label text="{i18n>remarks}"/>
-                        <TextArea value="{exit>/remarks}" rows="3"/>
+                        <TextArea value="{exit>/remarks}" rows="3" editable="{= !${exit>/isDisplayMode} }"/>
                     </form:content>
                 </form:SimpleForm>
+
+                <form:SimpleForm
+                    id="gateExitDisplayForm"
+                    visible="{exit>/isDisplayMode}"
+                    editable="false"
+                    layout="ResponsiveGridLayout"
+                    labelSpanM="4"
+                    columnsM="2"
+                    title="{i18n>gatePassDisplaySummary}">
+                    <form:content>
+                        <core:Title text="{i18n>referenceInfo}"/>
+                        <Label text="{i18n>referenceType}"/>
+                        <Text text="{parts: [{path: 'exit>/movementType'}], formatter: '.formatReferenceType'}"/>
+                        <Label text="{i18n>referenceNumber}"/>
+                        <Text text="{exit>/referenceNumber}"/>
+                        <Label text="{i18n>partyNumber}"/>
+                        <Text text="{exit>/partyNumber}"/>
+                        <Label text="{i18n>partyName}"/>
+                        <Text text="{exit>/partyName}"/>
+
+                        <core:Title text="{i18n>invoiceInfo}"/>
+                        <Label text="{i18n>invoiceDate}"/>
+                        <DatePicker dateValue="{exit>/invoiceDate}" editable="false"/>
+                        <Label text="{i18n>invoiceValue}"/>
+                        <Text text="{exit>/invoiceValue}"/>
+                        <Label text="{i18n>eWayBillNumber}"/>
+                        <Text text="{exit>/eWayBillNumber}"/>
+                        <Label text="{i18n>eWayBillDate}"/>
+                        <DatePicker dateValue="{exit>/eWayBillDate}" editable="false"/>
+
+                        <core:Title text="{i18n>shippingInfo}"/>
+                        <Label text="{i18n>shippingAddress}"/>
+                        <Text text="{exit>/shippingAddress}"/>
+
+                        <core:Title text="{i18n>vehicleInfo}"/>
+                        <Label text="{i18n>vehicleNumber}"/>
+                        <Text text="{exit>/vehicleNumber}"/>
+                        <Label text="{i18n>vehicleType}"/>
+                        <Text text="{exit>/vehicleType}"/>
+                        <Label text="{i18n>transporterName}"/>
+                        <Text text="{exit>/transporterName}"/>
+                        <Label text="{i18n>driverName}"/>
+                        <Text text="{exit>/driverName}"/>
+                        <Label text="{i18n>lrNumber}"/>
+                        <Text text="{exit>/lrNumber}"/>
+
+                        <core:Title text="{i18n>passTimestamps}"/>
+                        <Label text="{i18n>passDate}"/>
+                        <DatePicker dateValue="{exit>/passDate}" editable="false"/>
+                        <Label text="{i18n>passTime}"/>
+                        <TimePicker dateValue="{exit>/passTime}" editable="false"/>
+
+                        <core:Title text="{i18n>additionalInfo}"/>
+                        <Label text="{i18n>remarks}"/>
+                        <Text text="{exit>/passRemarks}"/>
+                    </form:content>
+                </form:SimpleForm>
+
+                <VBox class="sapUiSmallMarginTop" visible="{exit>/isDisplayMode}">
+                    <Title text="{i18n>materialItems}" level="H5"/>
+                    <t:Table
+                        rows="{exit>/items}"
+                        selectionMode="None"
+                        visibleRowCount="{= ${exit>/items}.length > 0 ? ${exit>/items}.length : 3}">
+                        <t:columns>
+                            <t:Column width="3rem">
+                                <Label text="{i18n>itemNo}"/>
+                                <t:template>
+                                    <Text text="{exit>itemNumber}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem">
+                                <Label text="{i18n>materialCode}"/>
+                                <t:template>
+                                    <Text text="{exit>materialCode}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="12rem">
+                                <Label text="{i18n>materialDescription}"/>
+                                <t:template>
+                                    <Text text="{exit>materialDescription}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="6rem">
+                                <Label text="{i18n>orderQuantity}"/>
+                                <t:template>
+                                    <Text text="{exit>quantity}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem">
+                                <Label text="{i18n>challanQuantity}"/>
+                                <t:template>
+                                    <Text text="{exit>challanQuantity}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="4rem">
+                                <Label text="{i18n>unit}"/>
+                                <t:template>
+                                    <Text text="{exit>unitOfMeasure}"/>
+                                </t:template>
+                            </t:Column>
+                        </t:columns>
+                    </t:Table>
+                </VBox>
             </VBox>
         </content>
 
@@ -78,6 +203,7 @@
                         id="closeButton"
                         text="{i18n>closeEntry}"
                         type="Emphasized"
+                        visible="{= !${exit>/isDisplayMode} }"
                         press=".onClosePress"/>
                     <Button
                         id="clearExitButton"

@@ -30,3 +30,19 @@ A SAPUI5-based Gate Pass management application for tracking and managing visito
 - Secure authentication via SAP Cloud Identity
 - Audit trail for all gate pass transactions
 - Data retention policies compliance
+
+## Change Request 1.3.0 Scope Updates
+### GatePass application
+- `Pass Time` defaults to current system time on form initialization/reset.
+- Line-item schema/UI changes:
+  - Removed `Supplier Invoice` and `Supplier Invoice Date`.
+  - Renamed `Quantity` display header to `Order Quantity`.
+  - Hid `Order Item` column in the item grid.
+  - Added editable `Challan Quantity` persisted in line-item payload.
+- Added disabled `Goods Receipt` button in the top-right area aligned with the `Gate Entry No` selector.
+
+### GateExit application
+- `Exit Time` defaults to current system time on screen initialization/reset.
+- Added Display mode compact read-only section to show GatePass-related fields and material items.
+- Enforced non-editable display behavior for GatePass snapshot fields.
+- Added watermark-style visual treatment for the top movement-type header section.

@@ -10,6 +10,10 @@ sap.ui.define([
 
     return Controller.extend("com.mdasad.gatepass.controller.GatePassList", {
 
+        _getCurrentTimeDate: function () {
+            return new Date();
+        },
+
         onInit: function () {
             var oModel = new JSONModel({
                 mode: "Create",
@@ -31,7 +35,7 @@ sap.ui.define([
                 driverName: "",
                 lrNumber: "",
                 passDate: new Date(),
-                passTime: null,
+                passTime: this._getCurrentTimeDate(),
                 remarks: "",
                 items: []
             });
@@ -128,9 +132,8 @@ sap.ui.define([
                     materialCode: oRow.material_no || "",
                     materialDescription: oRow.material_description || "",
                     quantity: oRow.po_qty !== undefined && oRow.po_qty !== null ? String(oRow.po_qty) : "",
+                    challanQuantity: "",
                     unitOfMeasure: "",
-                    supplierInvoiceNo: "",
-                    supplierInvoiceDate: null,
                     orderItemNumber: oRow.item_no !== undefined && oRow.item_no !== null ? String(oRow.item_no) : ""
                 };
             });
@@ -165,7 +168,7 @@ sap.ui.define([
             oModel.setProperty("/driverName", "");
             oModel.setProperty("/lrNumber", "");
             oModel.setProperty("/passDate", new Date());
-            oModel.setProperty("/passTime", null);
+            oModel.setProperty("/passTime", this._getCurrentTimeDate());
             oModel.setProperty("/remarks", "");
             oModel.setProperty("/items", []);
         },
@@ -319,7 +322,7 @@ sap.ui.define([
             oModel.setProperty("/eWayBillDate", this._fromEdmDate(oData.eWayBillDate));
             oModel.setProperty("/shippingAddress", oData.shippingAddress || "");
             oModel.setProperty("/passDate", this._fromEdmDate(oData.passDate) || new Date());
-            oModel.setProperty("/passTime", this._fromEdmTime(oData.passTime));
+            oModel.setProperty("/passTime", this._fromEdmTime(oData.passTime) || this._getCurrentTimeDate());
             oModel.setProperty("/remarks", oData.passRemarks || "");
 
             if (oData.materialItemsJson) {
@@ -397,9 +400,8 @@ sap.ui.define([
                 materialCode: "",
                 materialDescription: "",
                 quantity: "",
+                challanQuantity: "",
                 unitOfMeasure: "",
-                supplierInvoiceNo: "",
-                supplierInvoiceDate: null,
                 orderItemNumber: ""
             });
             oModel.setProperty("/items", aItems);
@@ -469,9 +471,8 @@ sap.ui.define([
                     materialCode: item.materialCode,
                     materialDescription: item.materialDescription,
                     quantity: parseFloat(item.quantity),
+                    challanQuantity: item.challanQuantity ? parseFloat(item.challanQuantity) : null,
                     unitOfMeasure: item.unitOfMeasure,
-                    supplierInvoiceNo: item.supplierInvoiceNo,
-                    supplierInvoiceDate: this._toOptionalEdmDate(item.supplierInvoiceDate),
                     orderItemNumber: item.orderItemNumber
                 };
             }.bind(this));

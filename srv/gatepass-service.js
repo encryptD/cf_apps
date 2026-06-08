@@ -274,8 +274,8 @@ class GatePassService extends cds.ApplicationService {
         materialCode: item.materialCode,
         materialDescription: item.materialDescription,
         quantity: item.quantity,
-        unitOfMeasure: item.unitOfMeasure,
-        supplierInvoiceNo: item.supplierInvoiceNo
+        challanQuantity: item.challanQuantity,
+        unitOfMeasure: item.unitOfMeasure
       }))
     };
 

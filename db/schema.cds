@@ -144,11 +144,8 @@ entity GatePassItems : managed, cuid {
   materialCode         : String(40) not null @title: 'Material Code';
   materialDescription  : String(200) not null @title: 'Material Description';
   quantity             : Decimal(15,3) not null @title: 'Quantity';
+  challanQuantity      : Decimal(15,3) @title: 'Challan Quantity';
   unitOfMeasure        : String(10) @title: 'Unit of Measure';
-
-  // Supplier/Customer Invoice Details (per item)
-  supplierInvoiceNo    : String(50) @title: 'Supplier Invoice No';
-  supplierInvoiceDate  : Date @title: 'Supplier Invoice Date';
 
   // Reference to PO/Invoice item
   orderItemNumber      : String(10) @title: 'Order Item Number';
