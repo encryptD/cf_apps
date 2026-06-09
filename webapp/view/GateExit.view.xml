@@ -14,16 +14,6 @@
 
         <content>
             <VBox class="sapUiSmallMargin">
-                <SegmentedButton
-                    id="exitModeSelection"
-                    selectedKey="{exit>/modeKey}"
-                    class="sapUiSmallMarginBottom"
-                    selectionChange=".onModeChange">
-                    <items>
-                        <SegmentedButtonItem text="{i18n>create}" key="create"/>
-                        <SegmentedButtonItem text="{i18n>display}" key="display"/>
-                    </items>
-                </SegmentedButton>
 
                 <VBox class="sapUiSmallMarginBottom gateExitWatermarkHeader">
                     <Title text="{i18n>movementType}" level="H5"/>
@@ -83,16 +73,15 @@
                         <core:Title text="{i18n>securityInfo}"/>
 
                         <Label text="{i18n>securityOfficer}"/>
-                        <Input value="{exit>/securityOfficer}" editable="{= !${exit>/isDisplayMode} }"/>
+                        <Input value="{exit>/securityOfficer}"/>
 
                         <Label text="{i18n>remarks}"/>
-                        <TextArea value="{exit>/remarks}" rows="3" editable="{= !${exit>/isDisplayMode} }"/>
+                        <TextArea value="{exit>/remarks}" rows="3"/>
                     </form:content>
                 </form:SimpleForm>
 
                 <form:SimpleForm
                     id="gateExitDisplayForm"
-                    visible="{exit>/isDisplayMode}"
                     editable="false"
                     layout="ResponsiveGridLayout"
                     labelSpanM="4"
@@ -147,7 +136,7 @@
                     </form:content>
                 </form:SimpleForm>
 
-                <VBox class="sapUiSmallMarginTop" visible="{exit>/isDisplayMode}">
+                <VBox class="sapUiSmallMarginTop">
                     <Title text="{i18n>materialItems}" level="H5"/>
                     <t:Table
                         rows="{exit>/items}"
@@ -203,7 +192,6 @@
                         id="closeButton"
                         text="{i18n>closeEntry}"
                         type="Emphasized"
-                        visible="{= !${exit>/isDisplayMode} }"
                         press=".onClosePress"/>
                     <Button
                         id="clearExitButton"
