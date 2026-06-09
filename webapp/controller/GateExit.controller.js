@@ -60,8 +60,6 @@ sap.ui.define([
 
         onInit: function () {
             var oModel = new JSONModel({
-                modeKey: "create",
-                isDisplayMode: false,
                 movementType: "I",
                 gateEntry_ID: "",
                 gateEntryNumber: "",
@@ -102,8 +100,6 @@ sap.ui.define([
 
         _clearForm: function () {
             var oModel = this.getView().getModel("exit");
-            oModel.setProperty("/modeKey", "create");
-            oModel.setProperty("/isDisplayMode", false);
             oModel.setProperty("/movementType", "I");
             oModel.setProperty("/gateEntry_ID", "");
             oModel.setProperty("/gateEntryNumber", "");
@@ -134,12 +130,6 @@ sap.ui.define([
             oModel.setProperty("/gatePasses", []);
         },
 
-        onModeChange: function (oEvent) {
-            var sModeKey = oEvent.getParameter("item").getKey();
-            var oModel = this.getView().getModel("exit");
-            oModel.setProperty("/modeKey", sModeKey);
-            oModel.setProperty("/isDisplayMode", sModeKey === "display");
-        },
 
         _loadPassIssuedEntries: function () {
             var oODataModel = this.getView().getModel();
