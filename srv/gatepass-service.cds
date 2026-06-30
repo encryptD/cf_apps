@@ -46,7 +46,7 @@ service GatePassService @(path: '/gatepass') {
     driverName: String,
     lrNumber: String,
     invoiceDate: Date,
-    invoiceValue: Decimal(15,2),
+    invoiceValue: String(50),
     eWayBillNumber: String,
     eWayBillDate: Date,
     shippingAddress: String,
@@ -56,12 +56,31 @@ service GatePassService @(path: '/gatepass') {
     itemsJson: String(5000)
   ) returns GateEntries;
   action printGatePass(gatePassID: UUID) returns String;
+  action postGoodsReceipt(
+    gateEntryID: UUID,
+    itemsJson: String(15000)
+  ) returns {
+    success: Boolean;
+    materialDocument: String;
+    materialDocumentYear: String;
+    postedItems: Integer;
+    message: String;
+  };
 
   // Functions for lookups
   function getPurchaseOrderDetails(poNumber: String) returns {
     plant: String;
     supplierNumber: String;
     supplierName: String;
+  };
+  function getPurchaseOrderSnapshot(poNumber: String) returns {
+    plant: String;
+    supplierNumber: String;
+    supplierName: String;
+    itemsJson: String(15000);
+  };
+  function getGoodsReceiptOpenItems(poNumber: String) returns {
+    itemsJson: String(15000);
   };
 
   function getSalesInvoiceDetails(invoiceNumber: String) returns {

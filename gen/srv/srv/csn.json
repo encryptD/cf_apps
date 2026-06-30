@@ -315,10 +315,9 @@
           "type": "cds.Date"
         },
         "invoiceValue": {
-          "@title": "Invoice Value",
-          "type": "cds.Decimal",
-          "precision": 15,
-          "scale": 2
+          "@title": "Invoice No",
+          "type": "cds.String",
+          "length": 50
         },
         "eWayBillNumber": {
           "@title": "E-Way Bill Number",
@@ -505,10 +504,9 @@
           "type": "cds.Date"
         },
         "invoiceValue": {
-          "@title": "Invoice Value",
-          "type": "cds.Decimal",
-          "precision": 15,
-          "scale": 2
+          "@title": "Invoice No",
+          "type": "cds.String",
+          "length": 50
         },
         "partyNumber": {
           "@title": "Party Number",
@@ -695,19 +693,16 @@
           "scale": 3,
           "notNull": true
         },
+        "challanQuantity": {
+          "@title": "Challan Quantity",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 3
+        },
         "unitOfMeasure": {
           "@title": "Unit of Measure",
           "type": "cds.String",
           "length": 10
-        },
-        "supplierInvoiceNo": {
-          "@title": "Supplier Invoice No",
-          "type": "cds.String",
-          "length": 50
-        },
-        "supplierInvoiceDate": {
-          "@title": "Supplier Invoice Date",
-          "type": "cds.Date"
         },
         "orderItemNumber": {
           "@title": "Order Item Number",
@@ -1129,10 +1124,9 @@
           "type": "cds.Date"
         },
         "invoiceValue": {
-          "@title": "Invoice Value",
-          "type": "cds.Decimal",
-          "precision": 15,
-          "scale": 2
+          "@title": "Invoice No",
+          "type": "cds.String",
+          "length": 50
         },
         "eWayBillNumber": {
           "@title": "E-Way Bill Number",
@@ -1344,10 +1338,9 @@
           "type": "cds.Date"
         },
         "invoiceValue": {
-          "@title": "Invoice Value",
-          "type": "cds.Decimal",
-          "precision": 15,
-          "scale": 2
+          "@title": "Invoice No",
+          "type": "cds.String",
+          "length": 50
         },
         "partyNumber": {
           "@title": "Party Number",
@@ -1551,19 +1544,16 @@
           "scale": 3,
           "notNull": true
         },
+        "challanQuantity": {
+          "@title": "Challan Quantity",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 3
+        },
         "unitOfMeasure": {
           "@title": "Unit of Measure",
           "type": "cds.String",
           "length": 10
-        },
-        "supplierInvoiceNo": {
-          "@title": "Supplier Invoice No",
-          "type": "cds.String",
-          "length": 50
-        },
-        "supplierInvoiceDate": {
-          "@title": "Supplier Invoice Date",
-          "type": "cds.Date"
         },
         "orderItemNumber": {
           "@title": "Order Item Number",
@@ -1760,9 +1750,8 @@
           "type": "cds.Date"
         },
         "invoiceValue": {
-          "type": "cds.Decimal",
-          "precision": 15,
-          "scale": 2
+          "type": "cds.String",
+          "length": 50
         },
         "eWayBillNumber": {
           "type": "cds.String"
@@ -1802,6 +1791,37 @@
         "type": "cds.String"
       }
     },
+    "GatePassService.postGoodsReceipt": {
+      "kind": "action",
+      "params": {
+        "gateEntryID": {
+          "type": "cds.UUID"
+        },
+        "itemsJson": {
+          "type": "cds.String",
+          "length": 15000
+        }
+      },
+      "returns": {
+        "elements": {
+          "success": {
+            "type": "cds.Boolean"
+          },
+          "materialDocument": {
+            "type": "cds.String"
+          },
+          "materialDocumentYear": {
+            "type": "cds.String"
+          },
+          "postedItems": {
+            "type": "cds.Integer"
+          },
+          "message": {
+            "type": "cds.String"
+          }
+        }
+      }
+    },
     "GatePassService.getPurchaseOrderDetails": {
       "kind": "function",
       "params": {
@@ -1819,6 +1839,47 @@
           },
           "supplierName": {
             "type": "cds.String"
+          }
+        }
+      }
+    },
+    "GatePassService.getPurchaseOrderSnapshot": {
+      "kind": "function",
+      "params": {
+        "poNumber": {
+          "type": "cds.String"
+        }
+      },
+      "returns": {
+        "elements": {
+          "plant": {
+            "type": "cds.String"
+          },
+          "supplierNumber": {
+            "type": "cds.String"
+          },
+          "supplierName": {
+            "type": "cds.String"
+          },
+          "itemsJson": {
+            "type": "cds.String",
+            "length": 15000
+          }
+        }
+      }
+    },
+    "GatePassService.getGoodsReceiptOpenItems": {
+      "kind": "function",
+      "params": {
+        "poNumber": {
+          "type": "cds.String"
+        }
+      },
+      "returns": {
+        "elements": {
+          "itemsJson": {
+            "type": "cds.String",
+            "length": 15000
           }
         }
       }

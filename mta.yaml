@@ -27,6 +27,7 @@ modules:
           url: ${default-url}
     requires:
       - name: gatepass-uaa
+      - name: gatepass-destination
 
   - name: gatepass-app-router
     type: approuter.nodejs

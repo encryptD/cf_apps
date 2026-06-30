@@ -16,7 +16,7 @@
             <VBox class="sapUiSmallMargin">
 
                 <!-- Gate Entry Selection -->
-                <VBox class="sapUiSmallMarginBottom">
+                <VBox class="sapUiSmallMarginBottom gateExitWatermarkHeader">
                     <Title text="{i18n>gateEntryLink}" level="H5"/>
                     <HBox alignItems="End" justifyContent="SpaceBetween">
                         <VBox width="80%">
@@ -35,7 +35,9 @@
                         <Button
                             id="goodsReceiptButton"
                             text="{i18n>goodsReceipt}"
-                            enabled="false"/>
+                            enabled="{pass>/isGoodsReceiptEnabled}"
+                            busy="{pass>/isGoodsReceiptBusy}"
+                            press=".onGoodsReceiptPress"/>
                     </HBox>
                 </VBox>
 
@@ -70,7 +72,7 @@
                         <DatePicker id="invoiceDatePicker" dateValue="{pass>/invoiceDate}" displayFormat="dd-MMM-yyyy"/>
 
                         <Label text="{i18n>invoiceValue}"/>
-                        <Input value="{pass>/invoiceValue}" type="Number"/>
+                        <Input value="{pass>/invoiceValue}"/>
 
                         <Label text="{i18n>eWayBillNumber}"/>
                         <Input value="{pass>/eWayBillNumber}"/>
@@ -126,7 +128,8 @@
                         id="itemsTable"
                         rows="{pass>/items}"
                         visibleRowCount="{= ${pass>/items}.length > 0 ? ${pass>/items}.length : 3}"
-                        selectionMode="None">
+                        selectionMode="MultiToggle"
+                        rowSelectionChange=".onItemsSelectionChange">
                         <t:columns>
                             <t:Column width="3rem">
                                 <Label text="{i18n>itemNo}"/>
@@ -155,7 +158,7 @@
                             <t:Column width="8rem">
                                 <Label text="{i18n>challanQuantity}"/>
                                 <t:template>
-                                    <Input value="{pass>challanQuantity}" type="Number"/>
+                                    <Input value="{pass>challanQuantity}" type="Number" liveChange=".onChallanQuantityChange" change=".onChallanQuantityChange"/>
                                 </t:template>
                             </t:Column>
                             <t:Column width="4rem">

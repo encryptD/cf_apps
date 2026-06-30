@@ -51,11 +51,32 @@ sap.ui.define([
                 return [];
             }
             try {
-                var aItems = JSON.parse(sItemsJson);
-                return Array.isArray(aItems) ? aItems : [];
+                var vParsed = JSON.parse(sItemsJson);
+                var aItems = Array.isArray(vParsed) ? vParsed : (Array.isArray(vParsed && vParsed.items) ? vParsed.items : []);
+                return this._normalizeItems(aItems);
             } catch (e) {
                 return [];
             }
+        },
+
+        _normalizeItems: function (aItems) {
+            if (!Array.isArray(aItems)) {
+                return [];
+            }
+            return aItems.map(function (oItem, iIndex) {
+                var oRow = oItem || {};
+                var vItemNumber = oRow.itemNumber != null ? oRow.itemNumber : (oRow.item_no != null ? oRow.item_no : (oRow.itemNo != null ? oRow.itemNo : iIndex + 1));
+                var vQuantity = oRow.quantity != null ? oRow.quantity : (oRow.order_qty != null ? oRow.order_qty : (oRow.challan_qty != null ? oRow.challan_qty : (oRow.po_qty != null ? oRow.po_qty : "")));
+                return {
+                    itemNumber: vItemNumber,
+                    materialCode: oRow.materialCode || oRow.material_no || "",
+                    materialDescription: oRow.materialDescription || oRow.material_description || "",
+                    quantity: vQuantity,
+                    challanQuantity: oRow.challanQuantity != null ? oRow.challanQuantity : (oRow.challan_qty != null ? oRow.challan_qty : ""),
+                    unitOfMeasure: oRow.unitOfMeasure || oRow.unit || oRow.uom || "",
+                    orderItemNumber: oRow.orderItemNumber || oRow.order_item || ""
+                };
+            });
         },
 
         onInit: function () {
@@ -63,8 +84,10 @@ sap.ui.define([
                 movementType: "I",
                 gateEntry_ID: "",
                 gateEntryNumber: "",
+                passIssuedEntries: [],
                 gatePass_ID: "",
                 gatePassNumber: "",
+                gatePasses: [],
                 exitDate: new Date(),
                 exitTime: this._getCurrentTimeDate(),
                 securityOfficer: "",
@@ -89,6 +112,8 @@ sap.ui.define([
                 items: []
             });
             this.getView().setModel(oModel, "exit");
+            this._mGatePassById = {};
+            this._iGatePassLoadSeq = 0;
 
             this.getOwnerComponent().getRouter().getRoute("GateExit").attachPatternMatched(this._onRouteMatched, this);
         },
@@ -128,6 +153,7 @@ sap.ui.define([
             oModel.setProperty("/passRemarks", "");
             oModel.setProperty("/items", []);
             oModel.setProperty("/gatePasses", []);
+            this._mGatePassById = {};
         },
 
 
@@ -182,15 +208,22 @@ sap.ui.define([
             if (!oODataModel || !sGateEntryID) {
                 return;
             }
+            this._iGatePassLoadSeq = (this._iGatePassLoadSeq || 0) + 1;
+            var iRequestSeq = this._iGatePassLoadSeq;
             var oModel = this.getView().getModel("exit");
             oModel.setProperty("/gatePasses", []);
             oModel.setProperty("/gatePass_ID", "");
             oModel.setProperty("/gatePassNumber", "");
+            this._mGatePassById = {};
             var fnLoadFallbackGatePasses = function () {
                 var oFallbackListBinding = oODataModel.bindList("/GatePasses", null, null, null, {
-                    $select: "ID,gatePassNumber,gateEntry_ID,gateEntryNumber,vehicleNumber,partyName"
+                    $select: "ID,gatePassNumber,gateEntry_ID,gateEntryNumber,vehicleNumber,partyName",
+                    $expand: "items"
                 });
                 oFallbackListBinding.requestContexts(0, 1000).then(function (aFallbackContexts) {
+                    if (iRequestSeq !== this._iGatePassLoadSeq) {
+                        return;
+                    }
                     var sEntryIdNormalized = String(sGateEntryID || "").toLowerCase();
                     var sEntryNumberNormalized = String(sGateEntryNumber || "").toLowerCase();
                     var aFallbackGatePasses = aFallbackContexts.map(function (oContext) {
@@ -201,11 +234,31 @@ sap.ui.define([
                         return (sPassEntryId && sPassEntryId === sEntryIdNormalized) ||
                             (sEntryNumberNormalized && sPassEntryNumber === sEntryNumberNormalized);
                     });
+                    this._mGatePassById = {};
+                    aFallbackGatePasses.forEach(function (oPass) {
+                        if (oPass && oPass.ID) {
+                            this._mGatePassById[oPass.ID] = oPass;
+                        }
+                    }.bind(this));
                     oModel.setProperty("/gatePasses", aFallbackGatePasses);
-                }).catch(function () {
+                    if (!(oModel.getProperty("/items") || []).length && aFallbackGatePasses.length) {
+                        var oFirstPass = aFallbackGatePasses[0];
+                        oModel.setProperty("/items", this._normalizeItems(oFirstPass.items || []));
+                    }
+                }).catch(function (oError) {
+                    if (iRequestSeq !== this._iGatePassLoadSeq) {
+                        return;
+                    }
+                    var sMessage = String((oError && (oError.message || oError.cause || oError.error)) || "");
+                    if (oError && oError.canceled) {
+                        return;
+                    }
+                    if (/abort|aborted|cancel/i.test(sMessage)) {
+                        return;
+                    }
                     MessageToast.show("Could not load Gate Passes");
                 });
-            };
+            }.bind(this);
             if (typeof oODataModel.refresh === "function") {
                 oODataModel.refresh();
             }
@@ -243,6 +296,36 @@ sap.ui.define([
                 this._applyGateEntrySnapshot(oSelectedEntry);
             }
             this._loadGatePassesForEntry(sSelectedKey, sGateEntryNumber);
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return;
+            }
+            var oListBinding = oODataModel.bindList("/GateEntries");
+            oListBinding.requestContexts(0, 1000).then(function (aContexts) {
+                var oFreshContext = aContexts.find(function (oCtx) {
+                    var oEntry = oCtx.getObject();
+                    return oEntry && oEntry.ID === sSelectedKey;
+                });
+                if (!oFreshContext) {
+                    return;
+                }
+                var oFreshEntry = oFreshContext.getObject() || {};
+                var sFreshGateEntryNumber = oFreshEntry.gateEntryNumber || sGateEntryNumber;
+                this._applyGateEntrySnapshot(oFreshEntry);
+                oModel.setProperty("/gateEntryNumber", sFreshGateEntryNumber);
+                var aEntries = oModel.getProperty("/passIssuedEntries") || [];
+                oModel.setProperty("/passIssuedEntries", aEntries.map(function (oEntry) {
+                    if (!oEntry || oEntry.ID !== sSelectedKey) {
+                        return oEntry;
+                    }
+                    return Object.assign({}, oEntry, oFreshEntry);
+                }));
+                if (sFreshGateEntryNumber !== sGateEntryNumber) {
+                    this._loadGatePassesForEntry(sSelectedKey, sFreshGateEntryNumber);
+                }
+            }.bind(this)).catch(function () {
+                // Keep already applied values if refresh lookup fails
+            });
         },
 
         onGatePassChange: function (oEvent) {
@@ -255,6 +338,33 @@ sap.ui.define([
             var oModel = this.getView().getModel("exit");
             oModel.setProperty("/gatePass_ID", sSelectedKey);
             oModel.setProperty("/gatePassNumber", oSelectedItem?.getText() || (oSource && oSource.getValue ? oSource.getValue() : ""));
+            var oSelectedPass = this._mGatePassById[sSelectedKey];
+            if (oSelectedPass) {
+                oModel.setProperty("/items", this._normalizeItems(oSelectedPass.items || []));
+            }
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return;
+            }
+            var oListBinding = oODataModel.bindList("/GatePasses", null, null, null, {
+                $expand: "items"
+            });
+            oListBinding.requestContexts(0, 1000).then(function (aContexts) {
+                var oFreshContext = aContexts.find(function (oCtx) {
+                    var oPass = oCtx.getObject();
+                    return oPass && oPass.ID === sSelectedKey;
+                });
+                if (!oFreshContext) {
+                    return;
+                }
+                var oFreshPass = oFreshContext.getObject() || {};
+                this._mGatePassById[sSelectedKey] = oFreshPass;
+                if (oModel.getProperty("/gatePass_ID") === sSelectedKey) {
+                    oModel.setProperty("/items", this._normalizeItems(oFreshPass.items || []));
+                }
+            }.bind(this)).catch(function () {
+                // Keep currently shown item snapshot if refresh lookup fails
+            });
         },
 
         formatReferenceType: function (sMovementType) {

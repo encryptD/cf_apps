@@ -10,7 +10,7 @@
     "build:preload": "ui5 build --clean-dest --include-task=generateComponentPreload"
   },
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "devDependencies": {
     "@ui5/cli": "^4",
@@ -22,7 +22,10 @@
   "dependencies": {
     "@sap/cds": "^9",
     "@cap-js/sqlite": "^2",
-    "@sap/xssec": "^4"
+    "@sap/xssec": "^4",
+    "@sap-cloud-sdk/http-client": "^4",
+    "@sap-cloud-sdk/connectivity": "^4",
+    "@sap-cloud-sdk/resilience": "^4"
   },
   "cds": {
     "requires": {
@@ -30,6 +33,18 @@
         "kind": "sqlite",
         "credentials": {
           "database": "gatepass.db"
+        }
+      },
+      "purchaseorder_api": {
+        "kind": "odata-v4",
+        "credentials": {
+          "destination": "MY410644"
+        }
+      },
+      "goodsreceipt_api": {
+        "kind": "odata-v4",
+        "credentials": {
+          "destination": "MY410644"
         }
       }
     }

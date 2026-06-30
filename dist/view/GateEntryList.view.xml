@@ -8,64 +8,68 @@
     <Page
         id="gateEntryPage"
         title="{i18n>gateEntryTitle}"
+        busy="{entry>/isLoading}"
+        busyIndicatorDelay="0"
         showNavButton="true"
         navButtonPress=".onNavBack">
 
         <content>
             <VBox class="sapUiSmallMargin">
+                <VBox class="sapUiSmallMarginBottom gateExitWatermarkHeader">
 
-                <!-- Mode Selection -->
-                <SegmentedButton
-                    id="modeSelection"
-                    selectedKey="create"
-                    class="sapUiSmallMarginBottom"
-                    selectionChange=".onModeChange">
-                    <items>
-                        <SegmentedButtonItem text="{i18n>create}" key="create"/>
-                        <SegmentedButtonItem text="{i18n>change}" key="change"/>
-                        <SegmentedButtonItem text="{i18n>display}" key="display"/>
-                        <SegmentedButtonItem text="{i18n>cancel}" key="cancel"/>
-                    </items>
-                </SegmentedButton>
-                <VBox
-                    class="sapUiSmallMarginBottom"
-                    visible="{= ${entry>/modeKey} !== 'create' }">
-                    <Title text="{i18n>gateEntryLink}" level="H5"/>
-                    <Label text="{i18n>gateEntryNumber}" required="true"/>
-                    <ComboBox
-                        id="gateEntrySelectionCombo"
-                        items="{entry>/gateEntries}"
-                        selectedKey="{entry>/selectedGateEntryId}"
-                        change=".onGateEntrySelect"
-                        selectionChange=".onGateEntrySelect"
-                        placeholder="{i18n>selectGateEntry}">
+                    <!-- Mode Selection -->
+                    <SegmentedButton
+                        id="modeSelection"
+                        selectedKey="create"
+                        class="sapUiSmallMarginBottom"
+                        selectionChange=".onModeChange">
                         <items>
-                            <core:Item key="{entry>ID}" text="{entry>gateEntryNumber} - {entry>vehicleNumber} - {entry>partyName}"/>
+                            <SegmentedButtonItem text="{i18n>create}" key="create"/>
+                            <SegmentedButtonItem text="{i18n>change}" key="change"/>
+                            <SegmentedButtonItem text="{i18n>display}" key="display"/>
+                            <SegmentedButtonItem text="{i18n>cancel}" key="cancel"/>
                         </items>
-                    </ComboBox>
-                </VBox>
+                    </SegmentedButton>
+                    <VBox
+                        class="sapUiSmallMarginBottom"
+                        visible="{= ${entry>/modeKey} !== 'create' }">
+                        <Title text="{i18n>gateEntryLink}" level="H5"/>
+                        <Label text="{i18n>gateEntryNumber}" required="true"/>
+                        <ComboBox
+                            id="gateEntrySelectionCombo"
+                            items="{entry>/gateEntries}"
+                            selectedKey="{entry>/selectedGateEntryId}"
+                            change=".onGateEntrySelect"
+                            selectionChange=".onGateEntrySelect"
+                            placeholder="{i18n>selectGateEntry}">
+                            <items>
+                                <core:Item key="{entry>ID}" text="{entry>gateEntryNumber} - {entry>vehicleNumber} - {entry>partyName}"/>
+                            </items>
+                        </ComboBox>
+                    </VBox>
+                    <HBox
+                        class="sapUiSmallMarginBottom"
+                        visible="{entry>/showStatusHeader}"
+                        alignItems="Center">
+                        <Label text="{i18n>status}" class="sapUiTinyMarginEnd"/>
+                        <Title text="{entry>/entryStatus}" level="H5"/>
+                    </HBox>
 
-                <HBox
-                    class="sapUiSmallMarginBottom"
-                    visible="{entry>/showStatusHeader}"
-                    alignItems="Center">
-                    <Label text="{i18n>status}" class="sapUiTinyMarginEnd"/>
-                    <Title text="{entry>/entryStatus}" level="H5"/>
-                </HBox>
 
-                <!-- Movement Type Radio -->
-                <VBox class="sapUiSmallMarginBottom">
-                    <Title text="{i18n>movementType}" level="H5"/>
-                    <RadioButtonGroup
-                        id="movementTypeGroup"
-                        enabled="{entry>/isFormEditable}"
-                        selectedIndex="{entry>/movementType === 'I' ? 0 : 1}"
-                        select=".onMovementTypeChange">
-                        <buttons>
-                            <RadioButton text="{i18n>inward}" selected="{= ${entry>/movementType} === 'I' }"/>
-                            <RadioButton text="{i18n>outward}" selected="{= ${entry>/movementType} === 'O' }"/>
-                        </buttons>
-                    </RadioButtonGroup>
+                    <!-- Movement Type Radio -->
+                    <VBox class="sapUiSmallMarginBottom">
+                        <Title text="{i18n>movementType}" level="H5"/>
+                        <RadioButtonGroup
+                            id="movementTypeGroup"
+                            enabled="{entry>/isFormEditable}"
+                            selectedIndex="{entry>/movementType === 'I' ? 0 : 1}"
+                            select=".onMovementTypeChange">
+                            <buttons>
+                                <RadioButton text="{i18n>inward}" selected="{= ${entry>/movementType} === 'I' }"/>
+                                <RadioButton text="{i18n>outward}" selected="{= ${entry>/movementType} === 'O' }"/>
+                            </buttons>
+                        </RadioButtonGroup>
+                    </VBox>
                 </VBox>
 
                 <!-- Entry Form -->
@@ -93,15 +97,12 @@
                         <Text text="{parts: [{path: 'entry>/movementType'}], formatter: '.formatReferenceType'}"/>
 
                         <Label text="{i18n>referenceNumber}"/>
-                        <ComboBox
-                            id="poNoCombo"
-                            items="{po>/poList}"
-                            enabled="{entry>/isFormEditable}"
-                            selectedKey="{entry>/poNo}"
-                            change=".onPONoChange"
-                            placeholder="{i18n>enterPONumber}">
-                            <core:Item key="{po>poNo}" text="{po>poNoText}"/>
-                        </ComboBox>
+                        <Input
+                            id="poNoInput"
+                            value="{entry>/poNo}"
+                            editable="{entry>/isFormEditable}"
+                            submit=".onPONoSubmit"
+                            placeholder="{i18n>enterPONumber}"/>
 
                         <Label text="{i18n>plant}"/>
                         <Input

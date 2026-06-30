@@ -73,7 +73,7 @@ entity GateEntries : managed, cuid {
 
   // Gate Pass form data saved against Gate Entry
   invoiceDate          : Date @title: 'Invoice Date';
-  invoiceValue         : Decimal(15,2) @title: 'Invoice Value';
+  invoiceValue         : String(50) @title: 'Invoice No';
   eWayBillNumber       : String(50) @title: 'E-Way Bill Number';
   eWayBillDate         : Date @title: 'E-Way Bill Date';
   shippingAddress      : String(250) @title: 'Shipping Address';
@@ -103,7 +103,7 @@ entity GatePasses : managed, cuid {
   referenceType        : String(10) @title: 'Reference Type';
   referenceNumber      : String(20) @title: 'Reference Number';
   invoiceDate          : Date @title: 'Invoice Date';
-  invoiceValue         : Decimal(15,2) @title: 'Invoice Value';
+  invoiceValue         : String(50) @title: 'Invoice No';
 
   // Party
   partyNumber          : String(20) @title: 'Party Number';

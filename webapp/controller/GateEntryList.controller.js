@@ -2,9 +2,8 @@ sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageToast",
-    "sap/m/MessageBox",
-    "com/mdasad/gatepass/model/POMockData"
-], function (Controller, JSONModel, MessageToast, MessageBox, POMockData) {
+    "sap/m/MessageBox"
+], function (Controller, JSONModel, MessageToast, MessageBox) {
     "use strict";
 
     return Controller.extend("com.mdasad.gatepass.controller.GateEntryList", {
@@ -16,6 +15,7 @@ sap.ui.define([
                 mode: "Create",
                 selectedGateEntryId: "",
                 gateEntries: [],
+                isLoading: false,
                 entryStatus: "",
                 isFormEditable: true,
                 showStatusHeader: false,
@@ -42,30 +42,8 @@ sap.ui.define([
             this.getView().setModel(oModel, "entry");
             this._mGateEntryContexts = {};
 
-            // Load PO mock data
-            this._loadPOMockData();
-
             // OData model will be set from manifest
             this.getOwnerComponent().getRouter().getRoute("GateEntryList").attachPatternMatched(this._onRouteMatched, this);
-        },
-
-        _loadPOMockData: function () {
-            var aData = POMockData.getAll();
-            var aUniquePOs = [];
-            var mPOs = {};
-            aData.forEach(function (oItem) {
-                if (!mPOs[oItem.po_no]) {
-                    mPOs[oItem.po_no] = true;
-                    aUniquePOs.push({
-                        poNo: oItem.po_no,
-                        poNoText: oItem.po_no
-                    });
-                }
-            });
-            this.getView().setModel(new JSONModel({
-                poData: aData,
-                poList: aUniquePOs
-            }), "po");
         },
 
         _onRouteMatched: function () {
@@ -112,7 +90,7 @@ sap.ui.define([
             oModel.setProperty("/modeKey", sModeKey);
             oModel.setProperty("/mode", mModeTitle[sModeKey] || "Create");
             oModel.setProperty("/isFormEditable", sModeKey === "create" || sModeKey === "change");
-            oModel.setProperty("/showStatusHeader", sModeKey === "display");
+            oModel.setProperty("/showStatusHeader", sModeKey === "display" || sModeKey === "cancel");
         },
 
         onModeChange: function (oEvent) {
@@ -188,28 +166,50 @@ sap.ui.define([
                 MessageBox.error("Selected Gate Entry could not be loaded");
                 return;
             }
-            var oData = oContext.getObject();
             var oModel = this.getView().getModel("entry");
-            oModel.setProperty("/entryStatus", oData.entryStatus || "");
-            oModel.setProperty("/movementType", oData.movementType || "I");
-            oModel.setProperty("/referenceType", oData.referenceType || (oData.movementType === "I" ? "PO" : "SI"));
-            oModel.setProperty("/referenceNumber", oData.referenceNumber || "");
-            oModel.setProperty("/plant", oData.plant || "");
-            oModel.setProperty("/partyNumber", oData.partyNumber || "");
-            oModel.setProperty("/partyName", oData.partyName || "");
-            oModel.setProperty("/vehicleNumber", oData.vehicleNumber || "");
-            oModel.setProperty("/vehicleType", oData.vehicleType || "");
-            oModel.setProperty("/transporterNumber", oData.transporterNumber || "");
-            oModel.setProperty("/transporterName", oData.transporterName || "");
-            oModel.setProperty("/driverName", oData.driverName || "");
-            oModel.setProperty("/driverContact", oData.driverContact || "");
-            oModel.setProperty("/lrNumber", oData.lrNumber || "");
-            oModel.setProperty("/gateEntryNumber", oData.gateEntryNumber || "");
-            oModel.setProperty("/gateEntryYear", oData.gateEntryYear || new Date().getFullYear());
-            oModel.setProperty("/entryDate", oData.entryDate ? new Date(oData.entryDate) : null);
-            oModel.setProperty("/entryTime", this._fromEdmTime(oData.entryTime));
-            oModel.setProperty("/remarks", oData.remarks || "");
-            oModel.setProperty("/poNo", oData.referenceNumber || "");
+            var fnApplyEntryData = function (oData) {
+                oModel.setProperty("/entryStatus", oData.entryStatus || "");
+                oModel.setProperty("/movementType", oData.movementType || "I");
+                oModel.setProperty("/referenceType", oData.referenceType || (oData.movementType === "I" ? "PO" : "SI"));
+                oModel.setProperty("/referenceNumber", oData.referenceNumber || "");
+                oModel.setProperty("/plant", oData.plant || "");
+                oModel.setProperty("/partyNumber", oData.partyNumber || "");
+                oModel.setProperty("/partyName", oData.partyName || "");
+                oModel.setProperty("/vehicleNumber", oData.vehicleNumber || "");
+                oModel.setProperty("/vehicleType", oData.vehicleType || "");
+                oModel.setProperty("/transporterNumber", oData.transporterNumber || "");
+                oModel.setProperty("/transporterName", oData.transporterName || "");
+                oModel.setProperty("/driverName", oData.driverName || "");
+                oModel.setProperty("/driverContact", oData.driverContact || "");
+                oModel.setProperty("/lrNumber", oData.lrNumber || "");
+                oModel.setProperty("/gateEntryNumber", oData.gateEntryNumber || "");
+                oModel.setProperty("/gateEntryYear", oData.gateEntryYear || new Date().getFullYear());
+                oModel.setProperty("/entryDate", oData.entryDate ? new Date(oData.entryDate) : null);
+                oModel.setProperty("/entryTime", this._fromEdmTime(oData.entryTime));
+                oModel.setProperty("/remarks", oData.remarks || "");
+                oModel.setProperty("/poNo", oData.referenceNumber || "");
+            }.bind(this);
+
+            fnApplyEntryData(oContext.getObject() || {});
+
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return;
+            }
+            var oListBinding = oODataModel.bindList("/GateEntries");
+            oListBinding.requestContexts(0, 1000).then(function (aContexts) {
+                var oFreshContext = aContexts.find(function (oCtx) {
+                    var oEntry = oCtx.getObject();
+                    return oEntry && oEntry.ID === sSelectedId;
+                });
+                if (!oFreshContext) {
+                    return;
+                }
+                this._mGateEntryContexts[sSelectedId] = oFreshContext;
+                fnApplyEntryData(oFreshContext.getObject() || {});
+            }.bind(this)).catch(function () {
+                // Keep currently populated values if refresh lookup fails
+            });
         },
 
         _fromEdmTime: function (vValue) {
@@ -269,36 +269,57 @@ sap.ui.define([
             oModel.setProperty("/referenceType", sMovement === "I" ? "PO" : "SI");
         },
 
-        onPONoChange: function (oEvent) {
-            var oSource = oEvent.getSource ? oEvent.getSource() : null;
-            var sSelectedPO = oEvent.getParameter("selectedItem")?.getKey() || (oSource && oSource.getSelectedKey ? oSource.getSelectedKey() : "");
+        _populateFromPONumber: function (sPONumber) {
+            var sPO = typeof sPONumber === "string" ? sPONumber.trim() : "";
             var oEntryModel = this.getView().getModel("entry");
-            var oPOModel = this.getView().getModel("po");
+            var oODataModel = this.getView().getModel();
 
             // Reset dependent fields
             oEntryModel.setProperty("/plant", "");
             oEntryModel.setProperty("/partyNumber", "");
             oEntryModel.setProperty("/partyName", "");
             oEntryModel.setProperty("/referenceNumber", "");
-
-            if (!sSelectedPO || !oPOModel) {
+            oEntryModel.setProperty("/poNo", sPO);
+            if (!sPO) {
                 return;
             }
 
-            oEntryModel.setProperty("/poNo", sSelectedPO);
-            oEntryModel.setProperty("/referenceNumber", sSelectedPO);
-
-            // Find first matching record for selected PO and auto-populate fields
-            var aPOData = oPOModel.getProperty("/poData") || [];
-            var oMatch = aPOData.find(function (oItem) {
-                return oItem.po_no === sSelectedPO;
-            });
-
-            if (oMatch) {
-                oEntryModel.setProperty("/plant", oMatch.plant || "");
-                oEntryModel.setProperty("/partyNumber", oMatch.vendor || "");
-                oEntryModel.setProperty("/partyName", oMatch.vendor_name || "");
+            oEntryModel.setProperty("/referenceNumber", sPO);
+            if (!oODataModel || oEntryModel.getProperty("/referenceType") !== "PO") {
+                return;
             }
+
+            var oFunction = oODataModel.bindContext("/getPurchaseOrderDetails(...)");
+            oFunction.setParameter("poNumber", sPO);
+            oEntryModel.setProperty("/isLoading", true);
+
+            oFunction.execute().then(function () {
+                var oResult = oFunction.getBoundContext().getObject() || {};
+                oEntryModel.setProperty("/plant", oResult.plant || "");
+                oEntryModel.setProperty("/partyNumber", oResult.supplierNumber || "");
+                oEntryModel.setProperty("/partyName", oResult.supplierName || "");
+            }.bind(this)).catch(function () {
+                MessageToast.show("Could not fetch Purchase Order details");
+            }).finally(function () {
+                oEntryModel.setProperty("/isLoading", false);
+            });
+        },
+
+        onPONoSubmit: function (oEvent) {
+            var sPOValue = oEvent.getParameter("value");
+            if (typeof sPOValue !== "string") {
+                sPOValue = oEvent.getSource() && oEvent.getSource().getValue ? oEvent.getSource().getValue() : "";
+            }
+            this._populateFromPONumber(sPOValue);
+        },
+
+        onPONoChange: function (oEvent) {
+            var oSource = oEvent.getSource ? oEvent.getSource() : null;
+            var sPOValue = oEvent.getParameter("value");
+            if (typeof sPOValue !== "string") {
+                sPOValue = oEvent.getParameter("selectedItem")?.getKey() || (oSource && oSource.getSelectedKey ? oSource.getSelectedKey() : "");
+            }
+            this._populateFromPONumber(sPOValue);
         },
 
         onSavePress: function () {

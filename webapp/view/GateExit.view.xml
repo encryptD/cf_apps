@@ -40,6 +40,7 @@
                         <ComboBox
                             id="exitGateEntryCombo"
                             items="{exit>/passIssuedEntries}"
+                            selectedKey="{exit>/gateEntry_ID}"
                             change=".onGateEntryChange"
                             selectionChange=".onGateEntryChange"
                             placeholder="{i18n>selectGateEntry}">
@@ -54,6 +55,7 @@
                         <ComboBox
                             id="exitGatePassCombo"
                             items="{exit>/gatePasses}"
+                            selectedKey="{exit>/gatePass_ID}"
                             change=".onGatePassChange"
                             selectionChange=".onGatePassChange"
                             placeholder="{i18n>selectGatePass}">

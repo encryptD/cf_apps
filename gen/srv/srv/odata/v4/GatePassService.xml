@@ -45,7 +45,10 @@
         <ActionImport Name="closeGateEntry" Action="GatePassService.closeGateEntry" EntitySet="GateEntries"/>
         <ActionImport Name="saveGatePassData" Action="GatePassService.saveGatePassData" EntitySet="GateEntries"/>
         <ActionImport Name="printGatePass" Action="GatePassService.printGatePass"/>
+        <ActionImport Name="postGoodsReceipt" Action="GatePassService.postGoodsReceipt"/>
         <FunctionImport Name="getPurchaseOrderDetails" Function="GatePassService.getPurchaseOrderDetails"/>
+        <FunctionImport Name="getPurchaseOrderSnapshot" Function="GatePassService.getPurchaseOrderSnapshot"/>
+        <FunctionImport Name="getGoodsReceiptOpenItems" Function="GatePassService.getGoodsReceiptOpenItems"/>
         <FunctionImport Name="getSalesInvoiceDetails" Function="GatePassService.getSalesInvoiceDetails"/>
       </EntityContainer>
       <EntityType Name="Plants">
@@ -91,7 +94,7 @@
         <Property Name="entryTime" Type="Edm.TimeOfDay"/>
         <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
         <Property Name="invoiceDate" Type="Edm.Date"/>
-        <Property Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Property Name="invoiceValue" Type="Edm.String" MaxLength="50"/>
         <Property Name="eWayBillNumber" Type="Edm.String" MaxLength="50"/>
         <Property Name="eWayBillDate" Type="Edm.Date"/>
         <Property Name="shippingAddress" Type="Edm.String" MaxLength="250"/>
@@ -124,7 +127,7 @@
         <Property Name="referenceType" Type="Edm.String" MaxLength="10"/>
         <Property Name="referenceNumber" Type="Edm.String" MaxLength="20"/>
         <Property Name="invoiceDate" Type="Edm.Date"/>
-        <Property Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Property Name="invoiceValue" Type="Edm.String" MaxLength="50"/>
         <Property Name="partyNumber" Type="Edm.String" MaxLength="20"/>
         <Property Name="partyName" Type="Edm.String" MaxLength="100"/>
         <Property Name="eWayBillNumber" Type="Edm.String" MaxLength="50"/>
@@ -159,9 +162,8 @@
         <Property Name="materialCode" Type="Edm.String" MaxLength="40" Nullable="false"/>
         <Property Name="materialDescription" Type="Edm.String" MaxLength="200" Nullable="false"/>
         <Property Name="quantity" Type="Edm.Decimal" Precision="15" Scale="3" Nullable="false"/>
+        <Property Name="challanQuantity" Type="Edm.Decimal" Precision="15" Scale="3"/>
         <Property Name="unitOfMeasure" Type="Edm.String" MaxLength="10"/>
-        <Property Name="supplierInvoiceNo" Type="Edm.String" MaxLength="50"/>
-        <Property Name="supplierInvoiceDate" Type="Edm.Date"/>
         <Property Name="orderItemNumber" Type="Edm.String" MaxLength="10"/>
       </EntityType>
       <EntityType Name="GateExit">
@@ -189,10 +191,26 @@
         <Property Name="securityOfficer" Type="Edm.String" MaxLength="100"/>
         <Property Name="remarks" Type="Edm.String" MaxLength="500"/>
       </EntityType>
+      <ComplexType Name="return_GatePassService_postGoodsReceipt">
+        <Property Name="success" Type="Edm.Boolean"/>
+        <Property Name="materialDocument" Type="Edm.String"/>
+        <Property Name="materialDocumentYear" Type="Edm.String"/>
+        <Property Name="postedItems" Type="Edm.Int32"/>
+        <Property Name="message" Type="Edm.String"/>
+      </ComplexType>
       <ComplexType Name="return_GatePassService_getPurchaseOrderDetails">
         <Property Name="plant" Type="Edm.String"/>
         <Property Name="supplierNumber" Type="Edm.String"/>
         <Property Name="supplierName" Type="Edm.String"/>
+      </ComplexType>
+      <ComplexType Name="return_GatePassService_getPurchaseOrderSnapshot">
+        <Property Name="plant" Type="Edm.String"/>
+        <Property Name="supplierNumber" Type="Edm.String"/>
+        <Property Name="supplierName" Type="Edm.String"/>
+        <Property Name="itemsJson" Type="Edm.String" MaxLength="15000"/>
+      </ComplexType>
+      <ComplexType Name="return_GatePassService_getGoodsReceiptOpenItems">
+        <Property Name="itemsJson" Type="Edm.String" MaxLength="15000"/>
       </ComplexType>
       <ComplexType Name="return_GatePassService_getSalesInvoiceDetails">
         <Property Name="plant" Type="Edm.String"/>
@@ -212,7 +230,7 @@
         <Parameter Name="driverName" Type="Edm.String"/>
         <Parameter Name="lrNumber" Type="Edm.String"/>
         <Parameter Name="invoiceDate" Type="Edm.Date"/>
-        <Parameter Name="invoiceValue" Type="Edm.Decimal" Precision="15" Scale="2"/>
+        <Parameter Name="invoiceValue" Type="Edm.String" MaxLength="50"/>
         <Parameter Name="eWayBillNumber" Type="Edm.String"/>
         <Parameter Name="eWayBillDate" Type="Edm.Date"/>
         <Parameter Name="shippingAddress" Type="Edm.String"/>
@@ -226,9 +244,22 @@
         <Parameter Name="gatePassID" Type="Edm.Guid"/>
         <ReturnType Type="Edm.String"/>
       </Action>
+      <Action Name="postGoodsReceipt" IsBound="false">
+        <Parameter Name="gateEntryID" Type="Edm.Guid"/>
+        <Parameter Name="itemsJson" Type="Edm.String" MaxLength="15000"/>
+        <ReturnType Type="GatePassService.return_GatePassService_postGoodsReceipt"/>
+      </Action>
       <Function Name="getPurchaseOrderDetails" IsBound="false" IsComposable="false">
         <Parameter Name="poNumber" Type="Edm.String"/>
         <ReturnType Type="GatePassService.return_GatePassService_getPurchaseOrderDetails"/>
+      </Function>
+      <Function Name="getPurchaseOrderSnapshot" IsBound="false" IsComposable="false">
+        <Parameter Name="poNumber" Type="Edm.String"/>
+        <ReturnType Type="GatePassService.return_GatePassService_getPurchaseOrderSnapshot"/>
+      </Function>
+      <Function Name="getGoodsReceiptOpenItems" IsBound="false" IsComposable="false">
+        <Parameter Name="poNumber" Type="Edm.String"/>
+        <ReturnType Type="GatePassService.return_GatePassService_getGoodsReceiptOpenItems"/>
       </Function>
       <Function Name="getSalesInvoiceDetails" IsBound="false" IsComposable="false">
         <Parameter Name="invoiceNumber" Type="Edm.String"/>
@@ -467,7 +498,7 @@
         <Annotation Term="Common.Label" String="Invoice Date"/>
       </Annotations>
       <Annotations Target="GatePassService.GateEntries/invoiceValue">
-        <Annotation Term="Common.Label" String="Invoice Value"/>
+        <Annotation Term="Common.Label" String="Invoice No"/>
       </Annotations>
       <Annotations Target="GatePassService.GateEntries/eWayBillNumber">
         <Annotation Term="Common.Label" String="E-Way Bill Number"/>
@@ -598,7 +629,7 @@
         <Annotation Term="Common.Label" String="Invoice Date"/>
       </Annotations>
       <Annotations Target="GatePassService.GatePasses/invoiceValue">
-        <Annotation Term="Common.Label" String="Invoice Value"/>
+        <Annotation Term="Common.Label" String="Invoice No"/>
       </Annotations>
       <Annotations Target="GatePassService.GatePasses/partyNumber">
         <Annotation Term="Common.Label" String="Party Number"/>
@@ -705,14 +736,11 @@
       <Annotations Target="GatePassService.GatePassItems/quantity">
         <Annotation Term="Common.Label" String="Quantity"/>
       </Annotations>
+      <Annotations Target="GatePassService.GatePassItems/challanQuantity">
+        <Annotation Term="Common.Label" String="Challan Quantity"/>
+      </Annotations>
       <Annotations Target="GatePassService.GatePassItems/unitOfMeasure">
         <Annotation Term="Common.Label" String="Unit of Measure"/>
-      </Annotations>
-      <Annotations Target="GatePassService.GatePassItems/supplierInvoiceNo">
-        <Annotation Term="Common.Label" String="Supplier Invoice No"/>
-      </Annotations>
-      <Annotations Target="GatePassService.GatePassItems/supplierInvoiceDate">
-        <Annotation Term="Common.Label" String="Supplier Invoice Date"/>
       </Annotations>
       <Annotations Target="GatePassService.GatePassItems/orderItemNumber">
         <Annotation Term="Common.Label" String="Order Item Number"/>
@@ -799,6 +827,16 @@
         <Annotation Term="Common.Label" String="Remarks"/>
       </Annotations>
       <Annotations Target="GatePassService.getPurchaseOrderDetails(Edm.String)/poNumber">
+        <Annotation Term="Core.OptionalParameter">
+          <Record Type="Core.OptionalParameterType"/>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.getPurchaseOrderSnapshot(Edm.String)/poNumber">
+        <Annotation Term="Core.OptionalParameter">
+          <Record Type="Core.OptionalParameterType"/>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="GatePassService.getGoodsReceiptOpenItems(Edm.String)/poNumber">
         <Annotation Term="Core.OptionalParameter">
           <Record Type="Core.OptionalParameterType"/>
         </Annotation>

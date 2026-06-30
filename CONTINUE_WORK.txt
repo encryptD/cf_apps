@@ -1,0 +1,22 @@
+GatePass quick resume note
+
+Current status
+- Deployed successfully to CF using: .mtar_tmp/gatepass_1.0.0.mtar
+- Deploy operation ID: 369b8091-6faa-11f1-ad2c-eeee0a92484f
+- Backend patch is live: GR auth failures are mapped to HTTP 403 (not generic 502).
+
+Observed runtime behavior
+- /gatepass/getGoodsReceiptOpenItems(poNumber='4500000000') returns 403 with message:
+  S/4 authorization error for API_SSPOPENITMGOODSRECEIPT: No authorization to access service group 'API_SSPOPENITMGOODSRECEIPT'
+- This indicates CAP behavior is correct; blocker is S/4 authorization.
+
+What needs to be done next
+1) In S/4, grant API access/authorization for service group:
+   API_SSPOPENITMGOODSRECEIPT (SRVD_A2X, version 0001)
+   for destination user (currently API_BP_USER).
+2) Re-test open items endpoint after auth update.
+
+Quick verify commands (after auth fix)
+- cf target
+- cf logs gatepass-srv --recent | grep -E "getGoodsReceiptOpenItems|API_SSPOPENITMGOODSRECEIPT|403 - Error"
+

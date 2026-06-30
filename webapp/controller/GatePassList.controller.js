@@ -3,9 +3,8 @@ sap.ui.define([
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
-    "sap/base/Log",
-    "com/mdasad/gatepass/model/POMockData"
-], function (Controller, JSONModel, MessageToast, MessageBox, Log, POMockData) {
+    "sap/base/Log"
+], function (Controller, JSONModel, MessageToast, MessageBox, Log) {
     "use strict";
 
     return Controller.extend("com.mdasad.gatepass.controller.GatePassList", {
@@ -37,12 +36,17 @@ sap.ui.define([
                 passDate: new Date(),
                 passTime: this._getCurrentTimeDate(),
                 remarks: "",
-                items: []
+                items: [],
+                gateEntries: [],
+                isGoodsReceiptEnabled: false,
+                isGoodsReceiptBusy: false,
+                selectedGRItems: [],
+                grOpenItemsByOrderItem: {}
             });
             this.getView().setModel(oModel, "pass");
             this._mPOItemsByNumber = {};
             this._mPOHeaderByNumber = {};
-            this._setPOMockData(POMockData.getAll());
+            this._mGROpenItemsByOrderItem = {};
 
             this.getOwnerComponent().getRouter().getRoute("GatePassList").attachPatternMatched(this._onRouteMatched, this);
         },
@@ -80,50 +84,214 @@ sap.ui.define([
             return null;
         },
 
-        _setPOMockData: function (aRows) {
-            var mByPONumber = {};
-            var mPOHeaderByNumber = {};
-            (Array.isArray(aRows) ? aRows : []).forEach(function (oRow) {
-                if (!oRow || !oRow.po_no) {
+        _getI18nText: function (sKey, aArgs, sFallback) {
+            var oI18nModel = this.getView().getModel("i18n") || this.getOwnerComponent().getModel("i18n");
+            if (!oI18nModel) {
+                return sFallback || sKey;
+            }
+            return oI18nModel.getResourceBundle().getText(sKey, aArgs || []);
+        },
+
+        _normalizeOrderItemNumber: function (vValue) {
+            var sRaw = (vValue || "").toString().trim();
+            if (!sRaw) {
+                return "";
+            }
+            var sDigits = sRaw.replace(/[^0-9]/g, "");
+            if (!sDigits) {
+                return sRaw.toUpperCase();
+            }
+            return sDigits.padStart(5, "0").slice(-5);
+        },
+
+        _clearItemsTableSelection: function () {
+            var oTable = this.byId("itemsTable");
+            if (oTable && oTable.clearSelection) {
+                oTable.clearSelection();
+            }
+        },
+
+        _applyGoodsReceiptSelectionState: function () {
+            var oModel = this.getView().getModel("pass");
+            var oTable = this.byId("itemsTable");
+            var aItems = oModel.getProperty("/items") || [];
+            var sReferenceType = oModel.getProperty("/referenceType");
+            var aSelectedItems = [];
+            if (oTable && oTable.getSelectedIndices) {
+                oTable.getSelectedIndices().forEach(function (iIndex) {
+                    var oItem = aItems[iIndex];
+                    if (!oItem) {
+                        return;
+                    }
+                    if (!oItem.grSelectable) {
+                        return;
+                    }
+                    aSelectedItems.push({
+                        orderItemNumber: oItem.orderItemNumber,
+                        challanQuantity: oItem.challanQuantity
+                    });
+                });
+            }
+            var bQtyValid = aSelectedItems.length > 0 && aSelectedItems.every(function (oItem) {
+                return Number(oItem.challanQuantity) > 0;
+            });
+            oModel.setProperty("/selectedGRItems", aSelectedItems);
+            oModel.setProperty("/isGoodsReceiptEnabled", sReferenceType === "PO" && !oModel.getProperty("/isGoodsReceiptBusy") && bQtyValid);
+        },
+
+        _applyGoodsReceiptEligibilityToItems: function () {
+            var oModel = this.getView().getModel("pass");
+            var aItems = oModel.getProperty("/items") || [];
+            var sReferenceType = oModel.getProperty("/referenceType");
+            var mOpenByItem = this._mGROpenItemsByOrderItem || {};
+            var aUpdated = aItems.map(function (oItem) {
+                var sItemNo = this._normalizeOrderItemNumber(oItem.orderItemNumber);
+                return Object.assign({}, oItem, {
+                    grSelectable: sReferenceType === "PO" && !!mOpenByItem[sItemNo]
+                });
+            }.bind(this));
+            oModel.setProperty("/items", aUpdated);
+            oModel.setProperty("/grOpenItemsByOrderItem", mOpenByItem);
+            this._applyGoodsReceiptSelectionState();
+        },
+
+        _loadGoodsReceiptOpenItemsForCurrentReference: function () {
+            var oModel = this.getView().getModel("pass");
+            var sReferenceType = oModel.getProperty("/referenceType");
+            var sReferenceNumber = (oModel.getProperty("/referenceNumber") || "").trim();
+            if (sReferenceType !== "PO" || !sReferenceNumber) {
+                this._mGROpenItemsByOrderItem = {};
+                this._applyGoodsReceiptEligibilityToItems();
+                return Promise.resolve();
+            }
+
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                this._mGROpenItemsByOrderItem = {};
+                this._applyGoodsReceiptEligibilityToItems();
+                return Promise.resolve();
+            }
+            var oFunction = oODataModel.bindContext("/getGoodsReceiptOpenItems(...)");
+            oFunction.setParameter("poNumber", sReferenceNumber);
+            return oFunction.execute().then(function () {
+                var oResult = oFunction.getBoundContext().getObject() || {};
+                var aOpenItems = [];
+                if (oResult.itemsJson) {
+                    try {
+                        aOpenItems = JSON.parse(oResult.itemsJson);
+                    } catch (e) {
+                        aOpenItems = [];
+                    }
+                }
+                this._mGROpenItemsByOrderItem = {};
+                aOpenItems.forEach(function (oOpenItem) {
+                    var sItemNo = this._normalizeOrderItemNumber(oOpenItem.purchaseOrderItem);
+                    if (sItemNo) {
+                        this._mGROpenItemsByOrderItem[sItemNo] = oOpenItem;
+                    }
+                }.bind(this));
+                this._applyGoodsReceiptEligibilityToItems();
+            }.bind(this)).catch(function () {
+                this._mGROpenItemsByOrderItem = {};
+                this._applyGoodsReceiptEligibilityToItems();
+                MessageToast.show(this._getI18nText("grOpenItemsLoadFailed", null, "Could not load Goods Receipt open items"));
+            }.bind(this));
+        },
+
+        _cachePORows: function (sPONumber, aRows) {
+            var sKey = (sPONumber || "").toString();
+            if (!sKey) {
+                return;
+            }
+            var aSafeRows = Array.isArray(aRows) ? aRows.slice() : [];
+            aSafeRows.sort(function (a, b) {
+                var iA = Number(a.item_no);
+                var iB = Number(b.item_no);
+                if (Number.isNaN(iA)) {
+                    iA = 0;
+                }
+                if (Number.isNaN(iB)) {
+                    iB = 0;
+                }
+                return iA - iB;
+            });
+            this._mPOItemsByNumber[sKey] = aSafeRows;
+            if (aSafeRows.length) {
+                this._mPOHeaderByNumber[sKey] = {
+                    partyNumber: aSafeRows[0].vendor || "",
+                    partyName: aSafeRows[0].vendor_name || ""
+                };
+            }
+        },
+
+        _fetchPOSnapshot: function (sPONumber) {
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return Promise.reject(new Error("OData model is not available"));
+            }
+            var oFunction = oODataModel.bindContext("/getPurchaseOrderSnapshot(...)");
+            oFunction.setParameter("poNumber", sPONumber);
+            return oFunction.execute().then(function () {
+                return oFunction.getBoundContext().getObject() || {};
+            });
+        },
+
+        _loadPOReferenceData: function (sReferenceType, sReferenceNumber, bSkipItemPopulate) {
+            var sPONumber = (sReferenceNumber || "").toString().trim();
+            var oModel = this.getView().getModel("pass");
+            if (sReferenceType !== "PO" || !sPONumber) {
+                return Promise.resolve();
+            }
+
+            var oCachedParty = this._resolvePartyFromPO("PO", sPONumber);
+            if (oCachedParty) {
+                oModel.setProperty("/partyNumber", oCachedParty.partyNumber || "");
+                oModel.setProperty("/partyName", oCachedParty.partyName || "");
+                if (!bSkipItemPopulate) {
+                    this._populateItemsFromReference("PO", sPONumber);
+                }
+            }
+
+            return this._fetchPOSnapshot(sPONumber).then(function (oSnapshot) {
+                var aRows = [];
+                if (oSnapshot.itemsJson) {
+                    try {
+                        aRows = JSON.parse(oSnapshot.itemsJson);
+                    } catch (e) {
+                        aRows = [];
+                    }
+                }
+                this._cachePORows(sPONumber, aRows);
+
+                var bStillSelected = oModel.getProperty("/referenceType") === "PO" &&
+                    (oModel.getProperty("/referenceNumber") || "") === sPONumber;
+                if (!bStillSelected) {
                     return;
                 }
-                if (!mByPONumber[oRow.po_no]) {
-                    mByPONumber[oRow.po_no] = [];
+
+                oModel.setProperty("/partyNumber", oSnapshot.supplierNumber || oModel.getProperty("/partyNumber"));
+                oModel.setProperty("/partyName", oSnapshot.supplierName || oModel.getProperty("/partyName"));
+                if (!bSkipItemPopulate) {
+                    this._populateItemsFromReference("PO", sPONumber);
                 }
-                mByPONumber[oRow.po_no].push(oRow);
-                if (!mPOHeaderByNumber[oRow.po_no]) {
-                    mPOHeaderByNumber[oRow.po_no] = {
-                        partyNumber: oRow.vendor || "",
-                        partyName: oRow.vendor_name || ""
-                    };
-                }
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+            }.bind(this)).catch(function () {
+                // Keep existing values and cached fallback behavior
             });
-            Object.keys(mByPONumber).forEach(function (sPONumber) {
-                mByPONumber[sPONumber].sort(function (a, b) {
-                    var iA = Number(a.item_no);
-                    var iB = Number(b.item_no);
-                    if (Number.isNaN(iA)) {
-                        iA = 0;
-                    }
-                    if (Number.isNaN(iB)) {
-                        iB = 0;
-                    }
-                    return iA - iB;
-                });
-            });
-            this._mPOItemsByNumber = mByPONumber;
-            this._mPOHeaderByNumber = mPOHeaderByNumber;
         },
+
 
         _populateItemsFromReference: function (sReferenceType, sReferenceNumber) {
             var oModel = this.getView().getModel("pass");
             if (sReferenceType !== "PO" || !sReferenceNumber) {
                 oModel.setProperty("/items", []);
+                this._applyGoodsReceiptSelectionState();
                 return;
             }
             var aRows = this._mPOItemsByNumber[sReferenceNumber] || [];
             if (!aRows.length) {
                 oModel.setProperty("/items", []);
+                this._applyGoodsReceiptSelectionState();
                 return;
             }
             var aItems = aRows.map(function (oRow, iIndex) {
@@ -134,10 +302,12 @@ sap.ui.define([
                     quantity: oRow.po_qty !== undefined && oRow.po_qty !== null ? String(oRow.po_qty) : "",
                     challanQuantity: "",
                     unitOfMeasure: "",
-                    orderItemNumber: oRow.item_no !== undefined && oRow.item_no !== null ? String(oRow.item_no) : ""
+                    orderItemNumber: oRow.item_no !== undefined && oRow.item_no !== null ? String(oRow.item_no) : "",
+                    grSelectable: false
                 };
             });
             oModel.setProperty("/items", aItems);
+            this._applyGoodsReceiptSelectionState();
         },
 
         _onRouteMatched: function (oEvent) {
@@ -171,6 +341,12 @@ sap.ui.define([
             oModel.setProperty("/passTime", this._getCurrentTimeDate());
             oModel.setProperty("/remarks", "");
             oModel.setProperty("/items", []);
+            oModel.setProperty("/isGoodsReceiptEnabled", false);
+            oModel.setProperty("/isGoodsReceiptBusy", false);
+            oModel.setProperty("/selectedGRItems", []);
+            oModel.setProperty("/grOpenItemsByOrderItem", {});
+            this._mGROpenItemsByOrderItem = {};
+            this._clearItemsTableSelection();
         },
 
         _loadOpenGateEntries: function () {
@@ -257,6 +433,7 @@ sap.ui.define([
             var oLoadedMatch = aLoadedEntries.find(function (oEntry) {
                 return oEntry.ID === sGateEntryId;
             });
+            var bHadLoadedMatch = !!oLoadedMatch;
 
             if (oLoadedMatch) {
                 this._applyGateEntryToPassModel(oLoadedMatch);
@@ -266,7 +443,6 @@ sap.ui.define([
                     movementType: oLoadedMatch.movementType,
                     referenceType: oLoadedMatch.referenceType
                 }), "com.mdasad.gatepass.controller.GatePassList");
-                return;
             }
 
             Log.info("[GatePassPropagation] _populateFromGateEntry fallback lookup from backend list", JSON.stringify({
@@ -297,7 +473,9 @@ sap.ui.define([
                 Log.error("[GatePassPropagation] _populateFromGateEntry failed to fetch Gate Entry details", JSON.stringify({
                     gateEntryId: sGateEntryId
                 }), "com.mdasad.gatepass.controller.GatePassList");
-                MessageToast.show("Could not fetch Gate Entry details");
+                if (!bHadLoadedMatch) {
+                    MessageToast.show("Could not fetch Gate Entry details");
+                }
             });
         },
 
@@ -324,17 +502,22 @@ sap.ui.define([
             oModel.setProperty("/passDate", this._fromEdmDate(oData.passDate) || new Date());
             oModel.setProperty("/passTime", this._fromEdmTime(oData.passTime) || this._getCurrentTimeDate());
             oModel.setProperty("/remarks", oData.passRemarks || "");
+            var bHasSavedItems = false;
 
             if (oData.materialItemsJson) {
                 try {
                     var aSavedItems = JSON.parse(oData.materialItemsJson);
                     oModel.setProperty("/items", Array.isArray(aSavedItems) ? aSavedItems : []);
-                    return;
+                    bHasSavedItems = true;
                 } catch (e) {
                     // fall back to reference-based population below
                 }
             }
-            this._populateItemsFromReference(oData.referenceType, oData.referenceNumber);
+            if (!bHasSavedItems) {
+                this._populateItemsFromReference(oData.referenceType, oData.referenceNumber);
+            }
+            this._loadPOReferenceData(oData.referenceType, oData.referenceNumber, bHasSavedItems);
+            this._loadGoodsReceiptOpenItemsForCurrentReference();
         },
 
         _toEdmDate: function (oDate) {
@@ -380,7 +563,16 @@ sap.ui.define([
             if (!sSelectedKey) {
                 return;
             }
+            this._clearItemsTableSelection();
             this._populateFromGateEntry(sSelectedKey);
+        },
+
+        onItemsSelectionChange: function () {
+            this._applyGoodsReceiptSelectionState();
+        },
+
+        onChallanQuantityChange: function () {
+            this._applyGoodsReceiptSelectionState();
         },
 
         formatReferenceType: function (sMovementType) {
@@ -405,6 +597,7 @@ sap.ui.define([
                 orderItemNumber: ""
             });
             oModel.setProperty("/items", aItems);
+            this._applyGoodsReceiptEligibilityToItems();
         },
 
         onRemoveItem: function (oEvent) {
@@ -416,6 +609,71 @@ sap.ui.define([
                 item.itemNumber = idx + 1;
             });
             oModel.setProperty("/items", aItems);
+            this._applyGoodsReceiptEligibilityToItems();
+        },
+
+        onGoodsReceiptPress: function () {
+            var oModel = this.getView().getModel("pass");
+            var sGateEntryID = oModel.getProperty("/gateEntry_ID");
+            var aSelectedItems = oModel.getProperty("/selectedGRItems") || [];
+            if (!sGateEntryID) {
+                MessageBox.error(this._getI18nText("selectGateEntryFirst", null, "Please select a Gate Entry first"));
+                return;
+            }
+            if (!aSelectedItems.length) {
+                MessageToast.show(this._getI18nText("grNoSelectableItems", null, "Select at least one open item for Goods Receipt"));
+                return;
+            }
+            var bQtyInvalid = aSelectedItems.some(function (oItem) {
+                return !Number.isFinite(Number(oItem.challanQuantity)) || Number(oItem.challanQuantity) <= 0;
+            });
+            if (bQtyInvalid) {
+                MessageBox.error(this._getI18nText("grQtyInvalidForSelected", null, "Enter Challan Quantity greater than zero for selected items"));
+                return;
+            }
+
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                MessageBox.error(this._getI18nText("grPostFailed", null, "Goods Receipt posting failed"));
+                return;
+            }
+            oModel.setProperty("/isGoodsReceiptBusy", true);
+            this._applyGoodsReceiptSelectionState();
+
+            var aPayloadItems = aSelectedItems.map(function (oItem) {
+                return {
+                    orderItemNumber: oItem.orderItemNumber,
+                    challanQuantity: Number(oItem.challanQuantity)
+                };
+            });
+
+            var oAction = oODataModel.bindContext("/postGoodsReceipt(...)");
+            oAction.setParameter("gateEntryID", sGateEntryID);
+            oAction.setParameter("itemsJson", JSON.stringify(aPayloadItems));
+
+            oAction.execute().then(function () {
+                var oResult = oAction.getBoundContext().getObject() || {};
+                var sMatDoc = oResult.materialDocument || "";
+                var sPostedCount = oResult.postedItems || aPayloadItems.length;
+                MessageBox.success(this._getI18nText("grPostingSuccess", [sPostedCount, sMatDoc], "Goods Receipt posted successfully"));
+                this._clearItemsTableSelection();
+                this._populateFromGateEntry(sGateEntryID);
+            }.bind(this)).catch(function (oError) {
+                MessageBox.error(this._extractErrorMessage(oError));
+            }.bind(this)).finally(function () {
+                oModel.setProperty("/isGoodsReceiptBusy", false);
+                this._applyGoodsReceiptSelectionState();
+            }.bind(this));
+        },
+
+        _extractErrorMessage: function (oError) {
+            if (oError?.error?.message) {
+                return oError.error.message;
+            }
+            if (oError?.message) {
+                return oError.message;
+            }
+            return this._getI18nText("grPostFailed", null, "Goods Receipt posting failed");
         },
 
         onSavePress: function () {
@@ -485,7 +743,7 @@ sap.ui.define([
             oAction.setParameter("driverName", oData.driverName);
             oAction.setParameter("lrNumber", oData.lrNumber);
             oAction.setParameter("invoiceDate", this._toOptionalEdmDate(oInvoiceDate));
-            oAction.setParameter("invoiceValue", oData.invoiceValue ? parseFloat(oData.invoiceValue) : null);
+            oAction.setParameter("invoiceValue", oData.invoiceValue ? String(oData.invoiceValue).trim() : null);
             oAction.setParameter("eWayBillNumber", oData.eWayBillNumber);
             oAction.setParameter("eWayBillDate", this._toOptionalEdmDate(oEWayBillDate));
             oAction.setParameter("shippingAddress", oData.shippingAddress);
