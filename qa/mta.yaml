@@ -1,0 +1,118 @@
+_schema-version: "3.3.0"
+ID: gatepass_test
+version: 1.0.0
+description: Gate Pass CAP + UI5 app (QA copy)
+parameters:
+  deploy_mode: html5-repo
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - cd .. && npm ci
+        - cd .. && npx cds build --production
+        - cd .. && npx cds deploy --to sqlite:gen/srv/gatepass.db
+        - cp ../srv/gatepass-service.js ../gen/srv/srv/gatepass-service.js
+        - mkdir -p ../gen/srv/srv/mock
+        - cp ../srv/mock/po-mock-data.json ../gen/srv/srv/mock/po-mock-data.json
+modules:
+  - name: gatepass-srv-test
+    type: nodejs
+    path: ../gen/srv
+    parameters:
+      memory: 512M
+      disk-quota: 512M
+      command: npx cds-serve
+    properties:
+      SAP_JWT_TRUST_ACL: '[{"clientid":"*","identityzone":"*"}]'
+      S4_DESTINATION: MY410651_Q
+    provides:
+      - name: gatepass-srv-test-api
+        properties:
+          url: ${default-url}
+    requires:
+      - name: gatepass-uaa-test
+      - name: gatepass-destination-test
+
+  - name: gatepass-app-router-test
+    type: approuter.nodejs
+    path: ../approuter
+    parameters:
+      memory: 256M
+      disk-quota: 256M
+      keep-existing-routes: true
+    properties:
+      XS_APP_LOG_LEVEL: info
+    requires:
+      - name: gatepass-uaa-test
+      - name: gatepass-destination-test
+      - name: gatepass-html5-runtime-test
+
+  - name: gatepass-ui-deployer-test
+    type: com.sap.application.content
+    path: ./
+    requires:
+      - name: gatepass-html5-host-test
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - name: gatepass-ui-test
+          artifacts:
+            - gatepass-ui-test.zip
+          target-path: resources/
+
+  - name: gatepass-ui-test
+    type: html5
+    path: ./webapp-test
+    build-parameters:
+      builder: custom
+      commands:
+        - npx bestzip gatepass-ui-test.zip *
+      build-result: .
+      supported-platforms: []
+resources:
+  - name: gatepass-uaa-test
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: xs-security.test.json
+
+  - name: gatepass-destination-test
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+      config:
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            destinations:
+              - Name: gatepass-srv-api
+                URL: ~{gatepass-srv-test-api/url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+              - Name: gatepass-srv-test-api
+                URL: ~{gatepass-srv-test-api/url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+            existing_destinations_policy: update
+    requires:
+      - name: gatepass-srv-test-api
+
+  - name: gatepass-html5-host-test
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+
+  - name: gatepass-html5-runtime-test
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime

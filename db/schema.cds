@@ -27,6 +27,7 @@ type DocumentStatus : String enum {
 type EntryStatus : String enum {
   Created     = 'CREATED';
   PassIssued  = 'PASS_ISSUED';
+  Parked      = 'PARKED';
   Exited      = 'EXITED';
   Cancelled   = 'CANCELLED';
 };
@@ -146,10 +147,15 @@ entity GatePassItems : managed, cuid {
   quantity             : Decimal(15,3) not null @title: 'Quantity';
   challanQuantity      : Decimal(15,3) @title: 'Challan Quantity';
   unitOfMeasure        : String(10) @title: 'Unit of Measure';
+  batch                : String(40) @title: 'Batch';
+  dateOfManufacture    : Date @title: 'Date of Manufacture';
+
+  // Plant per line item (without-PO scenarios)
+  plant                : String(10) @title: 'Plant';
 
   // Reference to PO/Invoice item
   orderItemNumber      : String(10) @title: 'Order Item Number';
-};
+}
 
 /**
  * Gate Exit — closure record created by Security at exit

@@ -1,0 +1,21 @@
+/* custom styles for gatepass app */
+
+.gateExitWatermarkHeader {
+    background: linear-gradient(rgba(245, 124, 0, 0.14), rgba(245, 124, 0, 0.14)),
+        repeating-linear-gradient(-45deg, rgba(245, 124, 0, 0.1) 0, rgba(245, 124, 0, 0.1) 12px, transparent 12px, transparent 24px);
+    border: 1px solid rgba(245, 124, 0, 0.32);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.gateLaunchpadWatermarkBg.sapMPage.sapMPageBgStandard,
+.gateLaunchpadWatermarkBg.sapMPage.sapMPageBgSolid,
+.gateLaunchpadWatermarkBg.sapMPage.sapMPageBgList,
+.gateLaunchpadWatermarkBg .sapMPageEnableScrolling {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)),
+        url("../img/Websol_Logo.jpg");
+    background-repeat: repeat, repeat;
+    background-size: auto, 210px auto;
+    background-position: 0 0, 0 0;
+}

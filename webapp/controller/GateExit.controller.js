@@ -74,7 +74,11 @@ sap.ui.define([
                     quantity: vQuantity,
                     challanQuantity: oRow.challanQuantity != null ? oRow.challanQuantity : (oRow.challan_qty != null ? oRow.challan_qty : ""),
                     unitOfMeasure: oRow.unitOfMeasure || oRow.unit || oRow.uom || "",
-                    orderItemNumber: oRow.orderItemNumber || oRow.order_item || ""
+                    orderItemNumber: oRow.orderItemNumber || oRow.order_item || "",
+                    plant: oRow.plant || "",
+                    storageLocation: oRow.storageLocation || "",
+                    batch: oRow.batch || "",
+                    dateOfManufacture: oRow.dateOfManufacture != null ? String(oRow.dateOfManufacture) : ""
                 };
             });
         },
@@ -167,7 +171,7 @@ sap.ui.define([
                 oODataModel.refresh();
             }
             var oListBinding = oODataModel.bindList("/GateEntries", null, null, null, {
-                $filter: "entryStatus eq 'CREATED'"
+            $filter: "(entryStatus eq 'CREATED' or entryStatus eq 'PASS_ISSUED' or entryStatus eq 'PARKED') and documentStatus ne 'CLOSED'"
             });
             oListBinding.requestContexts(0, 500).then(function (aContexts) {
                 var aPassIssuedEntries = aContexts.map(function (oContext) {

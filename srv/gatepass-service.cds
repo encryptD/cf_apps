@@ -58,6 +58,7 @@ service GatePassService @(path: '/gatepass') {
   action printGatePass(gatePassID: UUID) returns String;
   action postGoodsReceipt(
     gateEntryID: UUID,
+    poNumber: String,
     itemsJson: String(15000)
   ) returns {
     success: Boolean;

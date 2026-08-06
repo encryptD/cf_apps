@@ -49,21 +49,6 @@
                             </items>
                         </ComboBox>
 
-                        <core:Title text="{i18n>gatePassInfo}"/>
-
-                        <Label text="{i18n>gatePassNumber}"/>
-                        <ComboBox
-                            id="exitGatePassCombo"
-                            items="{exit>/gatePasses}"
-                            selectedKey="{exit>/gatePass_ID}"
-                            change=".onGatePassChange"
-                            selectionChange=".onGatePassChange"
-                            placeholder="{i18n>selectGatePass}">
-                            <items>
-                                <core:Item key="{exit>ID}" text="{exit>gatePassNumber}"/>
-                            </items>
-                        </ComboBox>
-
                         <core:Title text="{i18n>exitTimestamps}"/>
 
                         <Label text="{i18n>exitDate}"/>
@@ -179,6 +164,30 @@
                                 <Label text="{i18n>unit}"/>
                                 <t:template>
                                     <Text text="{exit>unitOfMeasure}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="6rem">
+                                <Label text="{i18n>plant}"/>
+                                <t:template>
+                                    <Text text="{exit>plant}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="10rem">
+                                <Label text="{i18n>storageLocation}"/>
+                                <t:template>
+                                    <Text text="{exit>storageLocation}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="6rem">
+                                <Label text="{i18n>batch}"/>
+                                <t:template>
+                                    <Text text="{exit>batch}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem">
+                                <Label text="{i18n>dateOfManufacture}"/>
+                                <t:template>
+                                    <Text text="{exit>dateOfManufacture}"/>
                                 </t:template>
                             </t:Column>
                         </t:columns>

@@ -40,6 +40,7 @@ sap.ui.define([
                 gateEntries: [],
                 isGoodsReceiptEnabled: false,
                 isGoodsReceiptBusy: false,
+                isReferenceBusy: false,
                 selectedGRItems: [],
                 grOpenItemsByOrderItem: {}
             });
@@ -47,6 +48,10 @@ sap.ui.define([
             this._mPOItemsByNumber = {};
             this._mPOHeaderByNumber = {};
             this._mGROpenItemsByOrderItem = {};
+            this._mStorageLocationsByPlant = {};
+            this._iPOReferenceRequestSeq = 0;
+            this._loadPlantLocationData();
+            oModel.setProperty("/plantList", []);
 
             this.getOwnerComponent().getRouter().getRoute("GatePassList").attachPatternMatched(this._onRouteMatched, this);
         },
@@ -55,7 +60,15 @@ sap.ui.define([
             if (sReferenceType !== "PO" || !sReferenceNumber) {
                 return null;
             }
-            return this._mPOHeaderByNumber[sReferenceNumber] || null;
+            var oHeader = this._mPOHeaderByNumber[sReferenceNumber];
+            if (oHeader) {
+                var oModel = this.getView().getModel("pass");
+                if (oHeader.plant) {
+                    oModel.setProperty("/plant", oHeader.plant);
+                }
+                return oHeader;
+            }
+            return null;
         },
 
         _fromEdmDate: function (v) {
@@ -128,7 +141,11 @@ sap.ui.define([
                     }
                     aSelectedItems.push({
                         orderItemNumber: oItem.orderItemNumber,
-                        challanQuantity: oItem.challanQuantity
+                        challanQuantity: oItem.challanQuantity,
+                        storageLocation: oItem.storageLocation || "",
+                        plant: oItem.plant || "",
+                        batch: oItem.batch || "",
+                        dateOfManufacture: oItem.dateOfManufacture || null
                     });
                 });
             }
@@ -219,7 +236,8 @@ sap.ui.define([
             if (aSafeRows.length) {
                 this._mPOHeaderByNumber[sKey] = {
                     partyNumber: aSafeRows[0].vendor || "",
-                    partyName: aSafeRows[0].vendor_name || ""
+                    partyName: aSafeRows[0].vendor_name || "",
+                    plant: this._resolvePOPlant(aSafeRows[0])
                 };
             }
         },
@@ -239,12 +257,21 @@ sap.ui.define([
         _loadPOReferenceData: function (sReferenceType, sReferenceNumber, bSkipItemPopulate) {
             var sPONumber = (sReferenceNumber || "").toString().trim();
             var oModel = this.getView().getModel("pass");
+            this._iPOReferenceRequestSeq = (this._iPOReferenceRequestSeq || 0) + 1;
+            var iRequestSeq = this._iPOReferenceRequestSeq;
+            var fnIsCurrentRequest = function () {
+                return iRequestSeq === this._iPOReferenceRequestSeq;
+            }.bind(this);
             if (sReferenceType !== "PO" || !sPONumber) {
+                oModel.setProperty("/isReferenceBusy", false);
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+                this._updatePlantColumnVisibility();
                 return Promise.resolve();
             }
+            oModel.setProperty("/isReferenceBusy", true);
 
             var oCachedParty = this._resolvePartyFromPO("PO", sPONumber);
-            if (oCachedParty) {
+            if (oCachedParty && fnIsCurrentRequest()) {
                 oModel.setProperty("/partyNumber", oCachedParty.partyNumber || "");
                 oModel.setProperty("/partyName", oCachedParty.partyName || "");
                 if (!bSkipItemPopulate) {
@@ -253,6 +280,9 @@ sap.ui.define([
             }
 
             return this._fetchPOSnapshot(sPONumber).then(function (oSnapshot) {
+                if (!fnIsCurrentRequest()) {
+                    return;
+                }
                 var aRows = [];
                 if (oSnapshot.itemsJson) {
                     try {
@@ -268,16 +298,28 @@ sap.ui.define([
                 if (!bStillSelected) {
                     return;
                 }
-
-                oModel.setProperty("/partyNumber", oSnapshot.supplierNumber || oModel.getProperty("/partyNumber"));
-                oModel.setProperty("/partyName", oSnapshot.supplierName || oModel.getProperty("/partyName"));
+                var oResolvedHeader = this._resolvePartyFromPO("PO", sPONumber) || {};
+                var sSnapshotPlant = (oSnapshot.plant || "").toString().trim();
+                if (sSnapshotPlant) {
+                    oModel.setProperty("/plant", sSnapshotPlant);
+                } else if (oResolvedHeader.plant) {
+                    oModel.setProperty("/plant", oResolvedHeader.plant);
+                }
+                oModel.setProperty("/partyNumber", oSnapshot.supplierNumber || oResolvedHeader.partyNumber || oModel.getProperty("/partyNumber"));
+                oModel.setProperty("/partyName", oSnapshot.supplierName || oResolvedHeader.partyName || oModel.getProperty("/partyName"));
                 if (!bSkipItemPopulate) {
                     this._populateItemsFromReference("PO", sPONumber);
                 }
-                this._loadGoodsReceiptOpenItemsForCurrentReference();
             }.bind(this)).catch(function () {
                 // Keep existing values and cached fallback behavior
-            });
+            }).finally(function () {
+                if (!fnIsCurrentRequest()) {
+                    return;
+                }
+                oModel.setProperty("/isReferenceBusy", false);
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+                this._updatePlantColumnVisibility();
+            }.bind(this));
         },
 
 
@@ -294,18 +336,35 @@ sap.ui.define([
                 this._applyGoodsReceiptSelectionState();
                 return;
             }
+            var sHeaderPlant = (oModel.getProperty("/plant") || "").toString().trim();
+            if (!sHeaderPlant) {
+                sHeaderPlant = this._resolvePOPlant(aRows[0]);
+                if (sHeaderPlant) {
+                    oModel.setProperty("/plant", sHeaderPlant);
+                }
+            }
+            var aPlantKeys = this._getAvailablePlantKeys();
             var aItems = aRows.map(function (oRow, iIndex) {
+                var sItemPlant = this._resolvePOPlant(oRow) || sHeaderPlant;
+                var aLocationOptions = this._getStorageLocationOptionsForPlant(sItemPlant);
+                var sDefaultLocation = aLocationOptions.length ? aLocationOptions[0].key : "";
                 return {
                     itemNumber: iIndex + 1,
                     materialCode: oRow.material_no || "",
                     materialDescription: oRow.material_description || "",
                     quantity: oRow.po_qty !== undefined && oRow.po_qty !== null ? String(oRow.po_qty) : "",
                     challanQuantity: "",
-                    unitOfMeasure: "",
+                    unitOfMeasure: this._resolvePOUnitOfMeasure(oRow),
                     orderItemNumber: oRow.item_no !== undefined && oRow.item_no !== null ? String(oRow.item_no) : "",
+                    plant: sItemPlant,
+                    plantOptions: aPlantKeys,
+                    storageLocationOptions: aLocationOptions,
+                    storageLocation: sDefaultLocation,
+                    batch: "",
+                    dateOfManufacture: null,
                     grSelectable: false
                 };
-            });
+            }.bind(this));
             oModel.setProperty("/items", aItems);
             this._applyGoodsReceiptSelectionState();
         },
@@ -343,10 +402,13 @@ sap.ui.define([
             oModel.setProperty("/items", []);
             oModel.setProperty("/isGoodsReceiptEnabled", false);
             oModel.setProperty("/isGoodsReceiptBusy", false);
+            oModel.setProperty("/isReferenceBusy", false);
             oModel.setProperty("/selectedGRItems", []);
             oModel.setProperty("/grOpenItemsByOrderItem", {});
+            this._iPOReferenceRequestSeq = (this._iPOReferenceRequestSeq || 0) + 1;
             this._mGROpenItemsByOrderItem = {};
             this._clearItemsTableSelection();
+            this._updatePlantColumnVisibility();
         },
 
         _loadOpenGateEntries: function () {
@@ -358,11 +420,17 @@ sap.ui.define([
                 oODataModel.refresh();
             }
             var oListBinding = oODataModel.bindList("/GateEntries", null, null, null, {
-                $filter: "entryStatus eq 'CREATED'"
+                $filter: "entryStatus eq 'CREATED' or entryStatus eq 'PARKED'"
             });
             return oListBinding.requestContexts(0, 500).then(function (aContexts) {
                 var aOpenEntries = aContexts.map(function (oContext) {
                     return oContext.getObject();
+                });
+                aOpenEntries.unshift({
+                    ID: "",
+                    gateEntryNumber: "",
+                    vehicleNumber: "",
+                    partyName: ""
                 });
                 var oModel = this.getView().getModel("pass");
                 oModel.setProperty("/gateEntries", aOpenEntries);
@@ -443,6 +511,7 @@ sap.ui.define([
                     movementType: oLoadedMatch.movementType,
                     referenceType: oLoadedMatch.referenceType
                 }), "com.mdasad.gatepass.controller.GatePassList");
+                return;
             }
 
             Log.info("[GatePassPropagation] _populateFromGateEntry fallback lookup from backend list", JSON.stringify({
@@ -507,7 +576,15 @@ sap.ui.define([
             if (oData.materialItemsJson) {
                 try {
                     var aSavedItems = JSON.parse(oData.materialItemsJson);
-                    oModel.setProperty("/items", Array.isArray(aSavedItems) ? aSavedItems : []);
+                    var aPlantKeys = this._getAvailablePlantKeys();
+                    var aItems = (Array.isArray(aSavedItems) ? aSavedItems : []).map(function (oItem) {
+                        var sItemPlant = (oItem.plant || "").toString().trim();
+                        return Object.assign({}, oItem, {
+                            plantOptions: aPlantKeys,
+                            storageLocationOptions: this._getStorageLocationOptionsForPlant(sItemPlant)
+                        });
+                    }.bind(this));
+                    oModel.setProperty("/items", aItems);
                     bHasSavedItems = true;
                 } catch (e) {
                     // fall back to reference-based population below
@@ -517,7 +594,6 @@ sap.ui.define([
                 this._populateItemsFromReference(oData.referenceType, oData.referenceNumber);
             }
             this._loadPOReferenceData(oData.referenceType, oData.referenceNumber, bHasSavedItems);
-            this._loadGoodsReceiptOpenItemsForCurrentReference();
         },
 
         _toEdmDate: function (oDate) {
@@ -567,6 +643,20 @@ sap.ui.define([
             this._populateFromGateEntry(sSelectedKey);
         },
 
+        onReferenceNumberChange: function (oEvent) {
+            var sValue = (oEvent.getParameter("value") || oEvent.getSource().getValue() || "").toString().trim();
+            var oModel = this.getView().getModel("pass");
+            oModel.setProperty("/referenceNumber", sValue);
+            var sRefType = oModel.getProperty("/referenceType");
+            if (sRefType === "PO") {
+                this._populateItemsFromReference("PO", sValue);
+                this._loadPOReferenceData("PO", sValue, false);
+            } else {
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+            }
+            this._updatePlantColumnVisibility();
+        },
+
         onItemsSelectionChange: function () {
             this._applyGoodsReceiptSelectionState();
         },
@@ -587,6 +677,8 @@ sap.ui.define([
         onAddItem: function () {
             var oModel = this.getView().getModel("pass");
             var aItems = oModel.getProperty("/items") || [];
+            // CR004: include plant + location options, plant editable only without PO
+            var aPlantKeys = this._getAvailablePlantKeys();
             aItems.push({
                 itemNumber: aItems.length + 1,
                 materialCode: "",
@@ -594,7 +686,12 @@ sap.ui.define([
                 quantity: "",
                 challanQuantity: "",
                 unitOfMeasure: "",
-                orderItemNumber: ""
+                orderItemNumber: "",
+                batch: "",
+                dateOfManufacture: null,
+                plant: "",
+                plantOptions: aPlantKeys,
+                storageLocationOptions: []
             });
             oModel.setProperty("/items", aItems);
             this._applyGoodsReceiptEligibilityToItems();
@@ -615,9 +712,16 @@ sap.ui.define([
         onGoodsReceiptPress: function () {
             var oModel = this.getView().getModel("pass");
             var sGateEntryID = oModel.getProperty("/gateEntry_ID");
+            var sReferenceNumber = (oModel.getProperty("/referenceNumber") || "").toString().trim();
+            // Refresh snapshot from live model state (captures latest batch, date, location)
+            this._applyGoodsReceiptSelectionState();
             var aSelectedItems = oModel.getProperty("/selectedGRItems") || [];
             if (!sGateEntryID) {
                 MessageBox.error(this._getI18nText("selectGateEntryFirst", null, "Please select a Gate Entry first"));
+                return;
+            }
+            if (!sReferenceNumber) {
+                MessageBox.error("Reference Purchase Order number is missing");
                 return;
             }
             if (!aSelectedItems.length) {
@@ -643,12 +747,17 @@ sap.ui.define([
             var aPayloadItems = aSelectedItems.map(function (oItem) {
                 return {
                     orderItemNumber: oItem.orderItemNumber,
-                    challanQuantity: Number(oItem.challanQuantity)
+                    challanQuantity: Number(oItem.challanQuantity),
+                    storageLocation: oItem.storageLocation || null,
+                    plant: oItem.plant || null,
+                    batch: oItem.batch || null,
+                    dateOfManufacture: this._toOptionalEdmDate(oItem.dateOfManufacture)
                 };
-            });
+            }.bind(this));
 
             var oAction = oODataModel.bindContext("/postGoodsReceipt(...)");
             oAction.setParameter("gateEntryID", sGateEntryID);
+            oAction.setParameter("poNumber", sReferenceNumber);
             oAction.setParameter("itemsJson", JSON.stringify(aPayloadItems));
 
             oAction.execute().then(function () {
@@ -712,26 +821,32 @@ sap.ui.define([
                     MessageBox.error("Material Description is mandatory for all items");
                     return;
                 }
-                if (!aItems[i].quantity) {
-                    MessageBox.error("Quantity is mandatory for all items");
+                // CR004: Challan Quantity mandatory for all, Quantity validated only if present
+                if (!aItems[i].challanQuantity || Number.isNaN(parseFloat(aItems[i].challanQuantity)) || parseFloat(aItems[i].challanQuantity) <= 0) {
+                    MessageBox.error(this._getI18nText("challanQtyMandatory", null, "Challan Quantity must be greater than zero for all items"));
                     return;
                 }
-                if (Number.isNaN(parseFloat(aItems[i].quantity))) {
+                if (aItems[i].quantity && Number.isNaN(parseFloat(aItems[i].quantity))) {
                     MessageBox.error("Quantity must be a valid number for all items");
                     return;
                 }
             }
 
             var oODataModel = this.getView().getModel();
+            // CR004: include plant per item in payload, challanQuantity always sent
             var aItemPayload = aItems.map(function (item) {
                 return {
                     itemNumber: item.itemNumber,
                     materialCode: item.materialCode,
                     materialDescription: item.materialDescription,
-                    quantity: parseFloat(item.quantity),
-                    challanQuantity: item.challanQuantity ? parseFloat(item.challanQuantity) : null,
+                    quantity: item.quantity ? parseFloat(item.quantity) : 0,
+                    challanQuantity: parseFloat(item.challanQuantity) || 0,
                     unitOfMeasure: item.unitOfMeasure,
-                    orderItemNumber: item.orderItemNumber
+                    orderItemNumber: item.orderItemNumber,
+                    batch: item.batch || "",
+                    dateOfManufacture: this._toOptionalEdmDate(item.dateOfManufacture),
+                    plant: item.plant || "",
+                    storageLocation: item.storageLocation || ""
                 };
             }.bind(this));
 
@@ -789,6 +904,143 @@ sap.ui.define([
 
         onNavBack: function () {
             this.getOwnerComponent().getRouter().navTo("Dashboard");
-        }
+        },
+
+        _resolvePOPlant: function (oRow) {
+            var aCandidates = oRow ? [oRow.plant, oRow.Plant] : [];
+            for (var i = 0; i < aCandidates.length; i++) {
+                if (aCandidates[i] !== undefined && aCandidates[i] !== null && String(aCandidates[i]).trim() !== "") {
+                    return String(aCandidates[i]).trim();
+                }
+            }
+            return "";
+        },
+
+        _resolvePOUnitOfMeasure: function (oRow) {
+            var aCandidates = oRow ? [
+                oRow.purchase_order_quantity_unit,
+                oRow.purchaseOrderQuantityUnit,
+                oRow.PurchaseOrderQuantityUnit,
+                oRow.order_quantity_unit_iso_code,
+                oRow.orderQuantityUnitISOCode,
+                oRow.OrderQuantityUnitISOCode
+            ] : [];
+            for (var i = 0; i < aCandidates.length; i++) {
+                if (aCandidates[i] !== undefined && aCandidates[i] !== null && String(aCandidates[i]).trim() !== "") {
+                    return String(aCandidates[i]).trim();
+                }
+            }
+            return "";
+        },
+
+        _updatePlantColumnVisibility: function () {
+            var oModel = this.getView().getModel("pass");
+            var sReferenceType = (oModel.getProperty("/referenceType") || "").toString().trim().toUpperCase();
+            var sReferenceNumber = (oModel.getProperty("/referenceNumber") || "").toString().trim();
+            var bHidePlantColumn = sReferenceType === "PO" && !!sReferenceNumber;
+            var oPlantCol = this.byId("plantColumn");
+            if (oPlantCol) {
+                oPlantCol.setVisible(!bHidePlantColumn);
+            }
+        },
+
+        _getAvailablePlantKeys: function () {
+            return [{ key: "WE01", text: "WE01" }, { key: "WE02", text: "WE02" }, { key: "WR01", text: "WR01" }, { key: "WR02", text: "WR02" }];
+        },
+
+        _loadPlantLocationData: function () {
+            // Embedded plant-location master data for reliable loading in deployed env
+            var oPlantData = {
+                "plants": [
+                    {"plnt": "WE01", "locations": [
+                        {"location": "1001", "description": "Main Store"},
+                        {"location": "1006", "description": "Finished Good"},
+                        {"location": "FGS1", "description": "S.LOC- SOLARKIT"}
+                    ]},
+                    {"plnt": "WE02", "locations": [
+                        {"location": "1001", "description": "Stores & Spares"},
+                        {"location": "1002", "description": "Store Raw Mat"},
+                        {"location": "1003", "description": "Store Transit-lo"},
+                        {"location": "1004", "description": "Shop Floor -Cell"},
+                        {"location": "1005", "description": "Semi-FG Cell"},
+                        {"location": "1006", "description": "Finished Good-Ce"},
+                        {"location": "CL01", "description": "Cell Production"},
+                        {"location": "EL01", "description": "Electrical Depar"},
+                        {"location": "FGL1", "description": "Factory FG Godwn"},
+                        {"location": "RM01", "description": "RAW MAT GODOWN 1"},
+                        {"location": "RM02", "description": "Raw mat godown 2"},
+                        {"location": "SCRP", "description": "SCRAP MAT S.LOC"}
+                    ]},
+                    {"plnt": "WR01", "locations": [
+                        {"location": "1200", "description": "PROJECT STORE"}
+                    ]},
+                    {"plnt": "WR02", "locations": [
+                        {"location": "1210", "description": "PROJECT STORE"}
+                    ]}
+                ]
+            };
+            var mByPlant = {};
+            var aPlants = Array.isArray(oPlantData.plants) ? oPlantData.plants : [];
+            aPlants.forEach(function (oPlant) {
+                var sPlant = (oPlant && oPlant.plnt || "").toString().trim().toUpperCase();
+                if (!sPlant) {
+                    return;
+                }
+                var aLocations = Array.isArray(oPlant.locations) ? oPlant.locations : [];
+                mByPlant[sPlant] = aLocations.map(function (oLocation) {
+                    var sLocation = (oLocation && oLocation.location || "").toString().trim();
+                    var sDescription = (oLocation && oLocation.description || "").toString().trim();
+                    return {
+                        key: sLocation,
+                        text: sDescription ? (sLocation + " - " + sDescription) : sLocation
+                    };
+                }).filter(function (oLocation) {
+                    return !!oLocation.key;
+                });
+            });
+            this._mStorageLocationsByPlant = mByPlant;
+        },
+
+        _getStorageLocationOptionsForPlant: function (sPlant) {
+            var sKey = (sPlant || "").toString().trim().toUpperCase();
+            var aLocations = this._mStorageLocationsByPlant[sKey] || [];
+            return aLocations.map(function (oLocation) {
+                return { key: oLocation.key, text: oLocation.text };
+            });
+        },
+
+        onItemPlantChange: function (oEvent) {
+            var sNewPlant = oEvent.getParameter("selectedItem")?.getKey() || "";
+            var oCtx = oEvent.getSource().getBindingContext("pass");
+            if (!oCtx) {
+                return;
+            }
+            var sPath = oCtx.getPath();
+            var iIndex = parseInt(sPath.split("/").pop(), 10);
+            var oModel = this.getView().getModel("pass");
+            var aItems = oModel.getProperty("/items") || [];
+            if (!Number.isNaN(iIndex) && iIndex >= 0 && iIndex < aItems.length) {
+                var oItem = Object.assign({}, aItems[iIndex], {
+                    plant: sNewPlant,
+                    storageLocationOptions: this._getStorageLocationOptionsForPlant(sNewPlant),
+                    storageLocation: ""
+                });
+                aItems[iIndex] = oItem;
+                oModel.setProperty("/items", aItems);
+                this._applyGoodsReceiptSelectionState();
+            }
+        },
+
+        onItemStorageLocationChange: function () {
+            this._applyGoodsReceiptSelectionState();
+        },
+
+        onItemBatchChange: function () {
+            this._applyGoodsReceiptSelectionState();
+        },
+
+        onItemDateOfManufactureChange: function () {
+            this._applyGoodsReceiptSelectionState();
+        },
     });
 });

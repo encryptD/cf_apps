@@ -1,5 +1,7 @@
 const cds = require('@sap/cds');
+const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
 const aPOMockData = require('./mock/po-mock-data.json');
+const GR_TRACKER_ENTITY = 'com.mdasad.gatepass.POGoodsReceiptYearly';
 
 class GatePassService extends cds.ApplicationService {
   async init() {
@@ -14,9 +16,367 @@ class GatePassService extends cds.ApplicationService {
     this.on('postGoodsReceipt', this._onPostGoodsReceipt);
     this.on('getPurchaseOrderDetails', this._onGetPurchaseOrderDetails);
     this.on('getPurchaseOrderSnapshot', this._onGetPurchaseOrderSnapshot);
+    this.on('getPurchaseOrderReceivedSnapshot', this._onGetPurchaseOrderReceivedSnapshot);
     this.on('getGoodsReceiptOpenItems', this._onGetGoodsReceiptOpenItems);
     this.on('getSalesInvoiceDetails', this._onGetSalesInvoiceDetails);
     return super.init();
+  }
+
+  async _applyCurrentYearReceivedQuantities(poNumber, rows, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    const aRows = Array.isArray(rows) ? rows : [];
+    if (!sPONumber || !aRows.length) {
+      return aRows;
+    }
+    const nCurrentYear = this._getCurrentGRYear();
+    const mReceivedByKey = await this._getGRTrackerQuantitiesByPOAndYear(sPONumber, nCurrentYear, req);
+    if (!Object.keys(mReceivedByKey).length) {
+      return aRows;
+    }
+    return aRows.map((oRow) => {
+      const sItemNumber = this._normalizePOItemNumber(this._pickFirstValue(oRow, ['item_no', 'PurchaseOrderItem', 'purchaseOrderItem']) || '');
+      const sPOUnit = this._normalizeUnitOfMeasure(
+        this._pickFirstValue(oRow, ['purchase_order_quantity_unit', 'PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || ''
+      );
+      const nOriginalQty = this._toNumber(this._pickFirstValue(oRow, ['po_qty', 'OrderQuantity', 'orderQuantity', 'quantity']));
+      if (!sItemNumber || !sPOUnit) {
+        return oRow;
+      }
+      const sTrackerKey = this._buildGRTrackerKey(sItemNumber, sPOUnit);
+      if (!Object.prototype.hasOwnProperty.call(mReceivedByKey, sTrackerKey)) {
+        return oRow;
+      }
+      return {
+        ...oRow,
+        po_qty: mReceivedByKey[sTrackerKey] || 0,
+        original_po_qty: nOriginalQty
+      };
+    });
+  }
+
+  _toODataV2DateTime(value) {
+    const oDate = value instanceof Date ? value : new Date(value);
+    const nTimestamp = Number.isNaN(oDate.getTime()) ? Date.now() : oDate.getTime();
+    return `/Date(${nTimestamp})/`;
+  }
+
+  _formatPOItemForMaterialDoc(vValue) {
+    const sRaw = (vValue || '').toString().trim();
+    if (!sRaw) {
+      return '';
+    }
+    const sDigits = sRaw.replace(/[^0-9]/g, '');
+    if (!sDigits) {
+      return sRaw;
+    }
+    const nParsed = Number.parseInt(sDigits, 10);
+    if (Number.isFinite(nParsed)) {
+      return String(nParsed);
+    }
+    return sDigits;
+  }
+
+  _extractGateEntrySequence(vGateEntryNumber) {
+    const sValue = (vGateEntryNumber || '').toString().trim();
+    if (!sValue) {
+      return 0;
+    }
+    let oMatch = sValue.match(/^GE-(\d+)(?:-\d{8})?$/i);
+    if (!oMatch) {
+      oMatch = sValue.match(/^GE-(\d+)/i);
+    }
+    if (!oMatch) {
+      return 0;
+    }
+    const nValue = Number.parseInt(oMatch[1], 10);
+    return Number.isFinite(nValue) ? nValue : 0;
+  }
+
+  _formatDateSuffix(vDateLike) {
+    const sNormalized = this._normalizeDate(vDateLike || new Date());
+    if (this._isNormalizedDate(sNormalized)) {
+      return sNormalized.replace(/-/g, '');
+    }
+    const oNow = new Date();
+    const sYear = String(oNow.getFullYear());
+    const sMonth = String(oNow.getMonth() + 1).padStart(2, '0');
+    const sDay = String(oNow.getDate()).padStart(2, '0');
+    return `${sYear}${sMonth}${sDay}`;
+  }
+
+  _isNormalizedDate(vValue) {
+    const sValue = (vValue || '').toString().trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sValue)) {
+      return false;
+    }
+    const [sYear, sMonth, sDay] = sValue.split('-');
+    const nYear = Number.parseInt(sYear, 10);
+    const nMonth = Number.parseInt(sMonth, 10);
+    const nDay = Number.parseInt(sDay, 10);
+    if (!Number.isInteger(nYear) || !Number.isInteger(nMonth) || !Number.isInteger(nDay)) {
+      return false;
+    }
+    const oDate = new Date(`${sValue}T00:00:00`);
+    if (Number.isNaN(oDate.getTime())) {
+      return false;
+    }
+    return (
+      oDate.getFullYear() === nYear &&
+      oDate.getMonth() + 1 === nMonth &&
+      oDate.getDate() === nDay
+    );
+  }
+
+  _isNormalizedTime(vValue) {
+    const sValue = (vValue || '').toString().trim();
+    const oMatch = sValue.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+    if (!oMatch) {
+      return false;
+    }
+    const nHours = Number.parseInt(oMatch[1], 10);
+    const nMinutes = Number.parseInt(oMatch[2], 10);
+    const nSeconds = Number.parseInt(oMatch[3], 10);
+    return (
+      nHours >= 0 &&
+      nHours < 24 &&
+      nMinutes >= 0 &&
+      nMinutes < 60 &&
+      nSeconds >= 0 &&
+      nSeconds < 60
+    );
+  }
+
+  _toDateTime(sDate, sTime) {
+    if (!this._isNormalizedDate(sDate) || !this._isNormalizedTime(sTime)) {
+      return null;
+    }
+    const oDate = new Date(`${sDate}T${sTime}`);
+    return Number.isNaN(oDate.getTime()) ? null : oDate;
+  }
+
+  _toDateTimeWithClientOffset(sDate, sTime, nClientTimezoneOffsetMinutes) {
+    if (!this._isNormalizedDate(sDate) || !this._isNormalizedTime(sTime)) {
+      return null;
+    }
+    if (!Number.isInteger(nClientTimezoneOffsetMinutes)) {
+      return this._toDateTime(sDate, sTime);
+    }
+    const [sYear, sMonth, sDay] = sDate.split('-');
+    const [sHours, sMinutes, sSeconds] = sTime.split(':');
+    const nUtcMillis = Date.UTC(
+      Number.parseInt(sYear, 10),
+      Number.parseInt(sMonth, 10) - 1,
+      Number.parseInt(sDay, 10),
+      Number.parseInt(sHours, 10),
+      Number.parseInt(sMinutes, 10),
+      Number.parseInt(sSeconds, 10),
+      0
+    ) + (nClientTimezoneOffsetMinutes * 60 * 1000);
+    const oDate = new Date(nUtcMillis);
+    return Number.isNaN(oDate.getTime()) ? null : oDate;
+  }
+
+  _getExitFutureToleranceMs() {
+    const nConfigured = Number.parseInt(process.env.GATE_EXIT_FUTURE_TOLERANCE_MS || '', 10);
+    if (Number.isInteger(nConfigured) && nConfigured >= 0) {
+      return nConfigured;
+    }
+    return 120000;
+  }
+
+  _toNumber(vValue) {
+    const nValue = Number(vValue);
+    return Number.isFinite(nValue) ? nValue : null;
+  }
+
+  _normalizeUnitOfMeasure(vValue) {
+    return (vValue || '').toString().trim().toUpperCase();
+  }
+
+  _getCurrentGRYear() {
+    return new Date().getFullYear();
+  }
+
+  _buildGRTrackerKey(sItemNumber, sUnitOfMeasure) {
+    return `${sItemNumber}::${sUnitOfMeasure}`;
+  }
+
+  async _getGRTrackerQuantitiesByPOAndYear(poNumber, grYear, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    const nGRYear = Number.parseInt(grYear, 10);
+    if (!sPONumber || !Number.isInteger(nGRYear)) {
+      return {};
+    }
+    try {
+      const tx = cds.tx(req);
+      const aRows = await tx.run(
+        SELECT.from(GR_TRACKER_ENTITY)
+          .columns('itemNumber', 'unitOfMeasure', 'receivedQuantity')
+          .where({
+            poNumber: sPONumber,
+            grYear: nGRYear
+          })
+      );
+      return (aRows || []).reduce((mAcc, oRow) => {
+        const sItemNumber = this._normalizePOItemNumber(oRow?.itemNumber);
+        const sUnit = this._normalizeUnitOfMeasure(oRow?.unitOfMeasure);
+        const nQty = this._toNumber(oRow?.receivedQuantity) || 0;
+        if (!sItemNumber || !sUnit || nQty <= 0) {
+          return mAcc;
+        }
+        const sKey = this._buildGRTrackerKey(sItemNumber, sUnit);
+        mAcc[sKey] = (mAcc[sKey] || 0) + nQty;
+        return mAcc;
+      }, {});
+    } catch (e) {
+      cds.log('gatepass-po').warn(`GR tracker table not available for PO ${sPONumber}. Returning empty tracker. ${e.message}`);
+      return {};
+    }
+  }
+
+  async _applyCurrentYearResidualQuantities(poNumber, rows, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    const aRows = Array.isArray(rows) ? rows : [];
+    if (!sPONumber || !aRows.length) {
+      return aRows;
+    }
+    const nCurrentYear = this._getCurrentGRYear();
+    const mReceivedByKey = await this._getGRTrackerQuantitiesByPOAndYear(sPONumber, nCurrentYear, req);
+    if (!Object.keys(mReceivedByKey).length) {
+      return aRows;
+    }
+    return aRows.map((oRow) => {
+      const sItemNumber = this._normalizePOItemNumber(this._pickFirstValue(oRow, ['item_no', 'PurchaseOrderItem', 'purchaseOrderItem']) || '');
+      const sPOUnit = this._normalizeUnitOfMeasure(
+        this._pickFirstValue(oRow, ['purchase_order_quantity_unit', 'PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || ''
+      );
+      const nPOQty = this._toNumber(this._pickFirstValue(oRow, ['po_qty', 'OrderQuantity', 'orderQuantity', 'quantity']));
+      if (!sItemNumber || !sPOUnit || nPOQty === null) {
+        return oRow;
+      }
+      const sTrackerKey = this._buildGRTrackerKey(sItemNumber, sPOUnit);
+      const nReceived = mReceivedByKey[sTrackerKey] || 0;
+      const nResidual = Math.max(0, nPOQty - nReceived);
+      return {
+        ...oRow,
+        po_qty: nResidual
+      };
+    });
+  }
+
+  async _upsertPOGRTrackerFromPostedItems(poNumber, materialDocItems, postingYear, postingDate, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    const nPostingYear = Number.parseInt(postingYear, 10);
+    const sPostingDate = this._normalizeDate(postingDate || new Date());
+    const aItems = Array.isArray(materialDocItems) ? materialDocItems : [];
+    if (!sPONumber || !Number.isInteger(nPostingYear) || !aItems.length) {
+      return;
+    }
+    try {
+
+    const mIncrements = {};
+    aItems.forEach((oItem) => {
+      const sItemNumber = this._normalizePOItemNumber(oItem?.PurchaseOrderItem);
+      const sUnit = this._normalizeUnitOfMeasure(oItem?.EntryUnit);
+      const nQty = this._toNumber(oItem?.QuantityInEntryUnit);
+      if (!sItemNumber || !sUnit || nQty === null || nQty <= 0) {
+        return;
+      }
+      const sKey = this._buildGRTrackerKey(sItemNumber, sUnit);
+      mIncrements[sKey] = (mIncrements[sKey] || 0) + nQty;
+    });
+    const aKeys = Object.keys(mIncrements);
+    if (!aKeys.length) {
+      return;
+    }
+
+    const tx = cds.tx(req);
+    for (const sKey of aKeys) {
+      const [sItemNumber, sUnit] = sKey.split('::');
+      const nIncrement = mIncrements[sKey] || 0;
+      if (!sItemNumber || !sUnit || nIncrement <= 0) {
+        continue;
+      }
+      const oWhere = {
+        poNumber: sPONumber,
+        itemNumber: sItemNumber,
+        unitOfMeasure: sUnit,
+        grYear: nPostingYear
+      };
+      const oExisting = await tx.run(
+        SELECT.one.from(GR_TRACKER_ENTITY)
+          .columns('receivedQuantity')
+          .where(oWhere)
+      );
+      if (oExisting) {
+        const nExisting = this._toNumber(oExisting.receivedQuantity) || 0;
+        await tx.run(
+          UPDATE(GR_TRACKER_ENTITY)
+            .set({
+              receivedQuantity: Number((nExisting + nIncrement).toFixed(3)),
+              lastPostingDate: sPostingDate
+            })
+            .where(oWhere)
+        );
+      } else {
+        await tx.run(
+          INSERT.into(GR_TRACKER_ENTITY).entries({
+            ...oWhere,
+            receivedQuantity: Number(nIncrement.toFixed(3)),
+            lastPostingDate: sPostingDate
+          })
+        );
+      }
+    }
+    } catch (e) {
+      cds.log('gatepass-gr').warn(`GR tracker table not available for upsert. ${e.message}`);
+    }
+  }
+
+  async _resolveGRStorageLocation(oOpenItem, sDefaultStorageLocation, req) {
+    const sProvided = (
+      oOpenItem?.storageLocation ||
+      sDefaultStorageLocation ||
+      ''
+    ).toString().trim();
+    if (sProvided) {
+      return sProvided;
+    }
+    const sMaterial = (oOpenItem?.material || '').toString().trim();
+    const sPlant = (oOpenItem?.plant || '').toString().trim();
+    if (!sMaterial || !sPlant) {
+      return '';
+    }
+    return this._fetchRecentStorageLocation(sMaterial, sPlant, req);
+  }
+
+  async _fetchRecentStorageLocation(material, plant, req) {
+    const sMaterial = (material || '').toString().trim();
+    const sPlant = (plant || '').toString().trim();
+    if (!sMaterial || !sPlant) {
+      return '';
+    }
+    const oGRService = await this._getGRService();
+    const oRemoteClient = req ? oGRService.tx(req) : oGRService;
+    const sGRServiceRoot = this._getGRServiceRoot();
+    const sFilter = `Material eq '${this._escapeODataString(sMaterial)}' and Plant eq '${this._escapeODataString(sPlant)}'`;
+    const sPath = this._buildS4Path(
+      sGRServiceRoot,
+      `/A_MaterialDocumentItem?$filter=${sFilter}&$select=StorageLocation&$top=20&$format=json`
+    );
+    const oResponse = await oRemoteClient.send({
+      method: 'GET',
+      path: sPath
+    });
+    const oPayload = this._unwrapODataPayload(oResponse);
+    const aRows = this._normalizeCollection(oPayload);
+    for (const oRow of aRows) {
+      const sStorageLocation = (oRow?.StorageLocation || oRow?.storageLocation || '').toString().trim();
+      if (sStorageLocation) {
+        return sStorageLocation;
+      }
+    }
+    return '';
   }
 
   _readDestinationOverrideFromCDSConfig() {
@@ -40,7 +400,7 @@ class GatePassService extends cds.ApplicationService {
     const oRequires = cds.env?.requires || {};
     oRequires.purchaseorder_api = oRequires.purchaseorder_api || { kind: 'odata-v4', credentials: {} };
     oRequires.purchaseorder_api.credentials = oRequires.purchaseorder_api.credentials || {};
-    oRequires.goodsreceipt_api = oRequires.goodsreceipt_api || { kind: 'odata-v4', credentials: {} };
+    oRequires.goodsreceipt_api = oRequires.goodsreceipt_api || { kind: 'odata-v2', credentials: {} };
     oRequires.goodsreceipt_api.credentials = oRequires.goodsreceipt_api.credentials || {};
 
     const oOverride = this._readDestinationOverrideFromCDSConfig();
@@ -86,13 +446,13 @@ class GatePassService extends cds.ApplicationService {
   _getPOServiceRoot() {
     const sConfigured = process.env.S4_PO_SERVICE_ROOT ||
       cds.env?.requires?.purchaseorder_api?.serviceRoot;
-    return this._normalizeServiceRoot(sConfigured, '/sap/api_purchaseorder_2/srvd_a2x/sap/purchaseorder/0001');
+    return this._normalizeServiceRoot(sConfigured, '/sap/opu/odata4/sap/api_purchaseorder_2/srvd_a2x/sap/purchaseorder/0001');
   }
 
   _getGRServiceRoot() {
     const sConfigured = process.env.S4_GR_SERVICE_ROOT ||
       cds.env?.requires?.goodsreceipt_api?.serviceRoot;
-    return this._normalizeServiceRoot(sConfigured, '/sap/api_sspopenitmgoodsreceipt/srvd_a2x/sap/sspopenitmgoodsreceipt/0001');
+    return this._normalizeServiceRoot(sConfigured, '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV');
   }
 
   _buildS4Path(sServiceRoot, sRelativePath) {
@@ -107,6 +467,7 @@ class GatePassService extends cds.ApplicationService {
     return `${sRoot}${sPath.startsWith('/') ? sPath : `/${sPath}`}`;
   }
 
+
   _isRemoteNotFoundError(error) {
     const iStatus = (
       error?.reason?.status ||
@@ -118,7 +479,6 @@ class GatePassService extends cds.ApplicationService {
     if (Number(iStatus) === 404) {
       return true;
     }
-
     const sCode = (
       error?.reason?.response?.body?.error?.code ||
       error?.reason?.code ||
@@ -143,6 +503,7 @@ class GatePassService extends cds.ApplicationService {
   _getRemoteErrorCode(error) {
     return (
       error?.reason?.response?.body?.error?.code ||
+      error?.response?.data?.error?.code ||
       error?.response?.body?.error?.code ||
       error?.reason?.code ||
       error?.code ||
@@ -150,12 +511,24 @@ class GatePassService extends cds.ApplicationService {
     ).toString();
   }
 
+  _getRemoteErrorPayload(error) {
+    return (
+      error?.reason?.response?.body ||
+      error?.response?.body ||
+      error?.response?.data ||
+      null
+    );
+  }
+
   _getRemoteErrorMessage(error) {
     const vMessage = (
       error?.reason?.response?.body?.error?.message?.value ||
       error?.reason?.response?.body?.error?.message ||
+      error?.response?.data?.error?.message?.value ||
+      error?.response?.data?.error?.message ||
       error?.response?.body?.error?.message?.value ||
       error?.response?.body?.error?.message ||
+      (typeof error?.response?.data === 'string' ? error.response.data : '') ||
       error?.reason?.message ||
       error?.message ||
       ''
@@ -165,28 +538,72 @@ class GatePassService extends cds.ApplicationService {
     }
     return String(vMessage || '').trim();
   }
+  _isCsrfValidationError(error) {
+    const sMessage = this._getRemoteErrorMessage(error).toLowerCase();
+    if (sMessage.includes('csrf token validation failed')) {
+      return true;
+    }
+    const sBody = JSON.stringify(error?.reason?.response?.body || error?.response?.body || error?.response?.data || '').toLowerCase();
+    return sBody.includes('csrf token validation failed');
+  }
 
   _isRemoteAuthorizationError(error) {
+    if (this._isCsrfValidationError(error)) {
+      return false;
+    }
     const iStatus = this._getRemoteErrorStatus(error);
-    if (iStatus === 401 || iStatus === 403) {
+    if (iStatus === 401) {
       return true;
     }
 
     const sCode = this._getRemoteErrorCode(error);
-    if (sCode.includes('/IWBEP/CM_V4_COS/011')) {
+    if (
+      sCode.includes('/IWBEP/CM_V4_COS/011') ||
+      sCode.includes('/IWBEP/CM_MGW_RT/000') ||
+      sCode.includes('/IWBEP/CM_MGW_RT/027')
+    ) {
       return true;
     }
 
     const sMessage = this._getRemoteErrorMessage(error).toLowerCase();
-    return sMessage.includes('no authorization') || sMessage.includes('not authorized');
+    if (sMessage.includes('no authorization') || sMessage.includes('not authorized') || sMessage.includes('start authorization')) {
+      return true;
+    }
+    return iStatus === 403 && sMessage.includes('authorization');
+  }
+
+  _isRemoteBusinessValidationError(error) {
+    const iStatus = this._getRemoteErrorStatus(error);
+    if (iStatus !== 400) {
+      return false;
+    }
+    if (this._isRemoteAuthorizationError(error)) {
+      return false;
+    }
+    return !!(this._getRemoteErrorPayload(error) || this._getRemoteErrorMessage(error));
+  }
+
+  _logRemoteErrorDetails(oLog, sContext, error) {
+    const sCode = this._getRemoteErrorCode(error);
+    const sMessage = this._getRemoteErrorMessage(error) || error?.message || 'Unknown remote error';
+    const iStatus = this._getRemoteErrorStatus(error);
+    oLog.error(`${sContext} (status=${iStatus || 'n/a'}, code=${sCode || 'n/a'}): ${sMessage}`);
+    const oPayload = this._getRemoteErrorPayload(error);
+    if (oPayload) {
+      oLog.error(JSON.stringify(oPayload));
+    }
+  }
+
+  _buildS4BusinessValidationErrorMessage() {
+    return 'S/4 Business Validation Failed, Contact Support';
   }
 
   _buildGRAuthorizationErrorMessage(error) {
     const sUpstreamMessage = this._getRemoteErrorMessage(error);
     if (sUpstreamMessage) {
-      return `S/4 authorization error for API_SSPOPENITMGOODSRECEIPT: ${sUpstreamMessage}`;
+      return `S/4 authorization error for API_MATERIAL_DOCUMENT_SRV: ${sUpstreamMessage}`;
     }
-    return 'S/4 authorization error for API_SSPOPENITMGOODSRECEIPT. Please assign required authorizations and retry.';
+    return 'S/4 authorization error for API_MATERIAL_DOCUMENT_SRV. Please assign required authorizations and retry.';
   }
 
   _buildPOAuthorizationErrorMessage(error) {
@@ -207,6 +624,9 @@ class GatePassService extends cds.ApplicationService {
     // Normalize date/time payloads (supports localized UI values like 5/9/26, 12:10:28 AM)
     data.entryDate = this._normalizeDate(data.entryDate);
     data.entryTime = this._normalizeTime(data.entryTime);
+    if (!data.entryTime) {
+      data.entryTime = this._getCurrentTimeHHMMSS();
+    }
 
     // Mandatory validations
     if (!data.movementType) {
@@ -233,15 +653,18 @@ class GatePassService extends cds.ApplicationService {
       data.gateEntryYear = new Date().getFullYear();
     }
 
-    // Generate Gate Entry Number (if not supplied by caller)
+    // Generate Gate Entry Number with date suffix for newly created records (if not supplied by caller)
     if (!data.gateEntryNumber) {
-      const last = await SELECT.one.from(GateEntries)
+      const aExistingNumbers = await SELECT.from(GateEntries)
         .columns('gateEntryNumber')
-        .where({ gateEntryNumber: { like: 'GE-%' } })
-        .orderBy('gateEntryNumber desc');
-      const lastSeq = last?.gateEntryNumber ? parseInt(last.gateEntryNumber.replace('GE-', ''), 10) : 0;
-      const nextSeq = Number.isFinite(lastSeq) ? lastSeq + 1 : 1;
-      data.gateEntryNumber = `GE-${String(nextSeq).padStart(6, '0')}`;
+        .where({ gateEntryNumber: { like: 'GE-%' } });
+      const nLastSeq = (aExistingNumbers || []).reduce((nMax, oRow) => {
+        const nSeq = this._extractGateEntrySequence(oRow?.gateEntryNumber);
+        return nSeq > nMax ? nSeq : nMax;
+      }, 0);
+      const nNextSeq = nLastSeq + 1;
+      const sDateSuffix = this._formatDateSuffix(data.entryDate);
+      data.gateEntryNumber = `GE-${String(nNextSeq).padStart(6, '0')}-${sDateSuffix}`;
     }
 
     // Auto-populate from PO or Invoice
@@ -274,7 +697,14 @@ class GatePassService extends cds.ApplicationService {
    * Before UPDATE Gate Entry — prevent edit if already closed or exited
    */
   async _onBeforeUpdateGateEntry(req) {
-    const { ID } = req.data;
+    const data = req.data || {};
+    if (Object.prototype.hasOwnProperty.call(data, 'entryTime')) {
+      data.entryTime = this._normalizeTime(data.entryTime);
+      if (!data.entryTime) {
+        data.entryTime = this._getCurrentTimeHHMMSS();
+      }
+    }
+    const { ID } = data;
     const entry = await SELECT.one.from(this.entities.GateEntries, ID).columns('entryStatus');
     if (entry && (entry.entryStatus === 'EXITED' || entry.entryStatus === 'CANCELLED')) {
       return req.error(400, 'Cannot modify a Gate Entry that is already exited or cancelled');
@@ -298,6 +728,15 @@ class GatePassService extends cds.ApplicationService {
     if (!data.passDate) {
       return req.error(400, 'Pass Date is mandatory');
     }
+    if (!data.invoiceDate) {
+      return req.error(400, 'Invoice Date is mandatory');
+    }
+    const sInvoiceValueInput = (data.invoiceValue !== null && data.invoiceValue !== undefined)
+      ? String(data.invoiceValue).trim()
+      : '';
+    if (!sInvoiceValueInput) {
+      return req.error(400, 'Invoice No. is mandatory');
+    }
 
     // Validate Gate Entry exists and is open
     const entry = await SELECT.one.from(GateEntries, data.gateEntryID).columns('*');
@@ -316,22 +755,94 @@ class GatePassService extends cds.ApplicationService {
     const sEWayBillDate = data.eWayBillDate === '' ? null : this._normalizeDate(data.eWayBillDate);
     const sPassDate = this._normalizeDate(data.passDate);
     const sPassTime = this._normalizeTime(data.passTime);
-    const sInvoiceValue = (data.invoiceValue !== null && data.invoiceValue !== undefined && String(data.invoiceValue).trim() !== '')
-      ? String(data.invoiceValue).trim()
+    const sReferenceType = data.referenceType !== undefined
+      ? ((data.referenceType || '').toString().trim() || null)
+      : (entry.referenceType || null);
+    const sReferenceNumber = data.referenceNumber !== undefined
+      ? ((data.referenceNumber || '').toString().trim() || null)
+      : (entry.referenceNumber || null);
+    let sPlant = data.plant !== undefined
+      ? ((data.plant || '').toString().trim() || null)
+      : (entry.plant || null);
+    let sPartyNumber = data.partyNumber !== undefined
+      ? ((data.partyNumber || '').toString().trim() || null)
+      : (entry.partyNumber || null);
+    let sPartyName = data.partyName !== undefined
+      ? ((data.partyName || '').toString().trim() || null)
+      : (entry.partyName || null);
+    const sInvoiceValue = sInvoiceValueInput
+      ? sInvoiceValueInput
       : null;
+    if (sReferenceType === 'PO' && sReferenceNumber && (!sPlant || !sPartyNumber || !sPartyName)) {
+      try {
+        const oPODetails = await this._fetchPODetails(sReferenceNumber, req);
+        if (oPODetails) {
+          sPlant = sPlant || oPODetails.plant || null;
+          sPartyNumber = sPartyNumber || oPODetails.supplierNumber || null;
+          sPartyName = sPartyName || oPODetails.supplierName || null;
+        }
+      } catch (e) {
+        if (this._isRemoteAuthorizationError(e)) {
+          return req.reject(403, this._buildPOAuthorizationErrorMessage(e));
+        }
+      }
+    }
 
-    // Validate and normalize items JSON payload
+    // CR004: Validate and normalize items JSON payload + mandatory challan quantity
     let sItemsJson = null;
     if (data.itemsJson) {
       try {
         const parsed = typeof data.itemsJson === 'string' ? JSON.parse(data.itemsJson) : data.itemsJson;
-        sItemsJson = JSON.stringify(parsed || []);
+        const aItems = Array.isArray(parsed) ? parsed : [];
+        const aValidatedItems = aItems.map((oItem, iIndex) => {
+          const oRow = oItem || {};
+          const nChallanQty = Number(oRow.challanQuantity);
+          const sBatch = (oRow.batch || '').toString().trim();
+          const sStorageLocation = (oRow.storageLocation || '').toString().trim();
+          const sPlant = (oRow.plant || '').toString().trim();
+          const sDateOfManufacture = this._normalizeDate(oRow.dateOfManufacture);
+          if (!Number.isFinite(nChallanQty) || nChallanQty <= 0) {
+            throw new Error(`CHALLAN_QTY_INVALID:${iIndex + 1}`);
+          }
+          if (sDateOfManufacture && !this._isNormalizedDate(sDateOfManufacture)) {
+            throw new Error(`DATE_OF_MANUFACTURE_INVALID:${iIndex + 1}`);
+          }
+          return {
+            ...oRow,
+            challanQuantity: nChallanQty,
+            storageLocation: sStorageLocation || null,
+            plant: sPlant || null,
+            batch: sBatch || null,
+            dateOfManufacture: sDateOfManufacture && this._isNormalizedDate(sDateOfManufacture)
+              ? sDateOfManufacture
+              : null
+          };
+        });
+        sItemsJson = JSON.stringify(aValidatedItems);
       } catch (e) {
+        if (e && typeof e.message === 'string' && e.message.startsWith('CHALLAN_QTY_INVALID:')) {
+          const sIndex = e.message.split(':')[1] || '?';
+          return req.error(400, `Challan Quantity must be greater than zero for item ${sIndex}`);
+        }
+        if (e && typeof e.message === 'string' && e.message.startsWith('DATE_OF_MANUFACTURE_INVALID:')) {
+          const sIndex = e.message.split(':')[1] || '?';
+          return req.error(400, `Date of Manufacture is invalid for item ${sIndex}`);
+        }
         return req.error(400, 'Material items payload is invalid');
       }
     }
 
+    // CR004: Only PO entries with an actual PO number go to CREATED.
+    // Without-PO (blank PO number) and non-PO flows remain PARKED.
+    const bHasPOReference = sReferenceType === 'PO' && !!sReferenceNumber;
+    const sNewEntryStatus = bHasPOReference ? 'CREATED' : 'PARKED';
+
     await UPDATE(GateEntries, entry.ID).set({
+      referenceType: sReferenceType,
+      referenceNumber: sReferenceNumber,
+      plant: sPlant,
+      partyNumber: sPartyNumber,
+      partyName: sPartyName,
       vehicleNumber: data.vehicleNumber || entry.vehicleNumber,
       vehicleType: data.vehicleType || entry.vehicleType,
       transporterName: data.transporterName || entry.transporterName,
@@ -346,7 +857,7 @@ class GatePassService extends cds.ApplicationService {
       passTime: sPassTime || null,
       passRemarks: data.remarks || null,
       materialItemsJson: sItemsJson,
-      entryStatus: 'CREATED'
+      entryStatus: sNewEntryStatus
     });
 
     return SELECT.one.from(GateEntries, entry.ID);
@@ -367,7 +878,15 @@ class GatePassService extends cds.ApplicationService {
    * Action: Close Gate Entry (Gate Exit)
    */
   async _onCloseGateEntry(req) {
-    const { gateEntryID, gatePassID } = req.data;
+    const {
+      gateEntryID,
+      gatePassID,
+      exitDate,
+      exitTime,
+      clientTimezoneOffsetMinutes,
+      securityOfficer,
+      remarks
+    } = req.data || {};
     const { GateEntries, GateExit, GatePasses } = this.entities;
 
     // Validate Gate Entry
@@ -381,7 +900,7 @@ class GatePassService extends cds.ApplicationService {
     if (entry.entryStatus === 'CANCELLED') {
       return req.error(400, 'Gate Entry is cancelled');
     }
-    if (entry.entryStatus !== 'CREATED' && entry.entryStatus !== 'PASS_ISSUED') {
+    if (entry.entryStatus !== 'CREATED' && entry.entryStatus !== 'PASS_ISSUED' && entry.entryStatus !== 'PARKED') {
       return req.error(400, 'Gate Entry is not open for exit');
     }
 
@@ -404,27 +923,65 @@ class GatePassService extends cds.ApplicationService {
     const seq = (count[0]?.count || 0) + 1;
     const gateExitNumber = `GX-${String(seq).padStart(6, '0')}`;
 
+    const sExitDate = this._normalizeDate(exitDate || new Date());
+    const sExitTime = this._normalizeTime(exitTime || this._getCurrentTimeHHMMSS());
+    if (!this._isNormalizedDate(sExitDate)) {
+      return req.error(400, 'Exit Date is invalid');
+    }
+    if (!this._isNormalizedTime(sExitTime)) {
+      return req.error(400, 'Exit Time is invalid');
+    }
+    const nClientTimezoneOffsetMinutes = Number.parseInt(clientTimezoneOffsetMinutes, 10);
+    const oExitDateTime = this._toDateTimeWithClientOffset(
+      sExitDate,
+      sExitTime,
+      Number.isInteger(nClientTimezoneOffsetMinutes) ? nClientTimezoneOffsetMinutes : null
+    );
+    if (!oExitDateTime) {
+      return req.error(400, 'Exit Date/Time is invalid');
+    }
+    if (oExitDateTime.getTime() > Date.now() + this._getExitFutureToleranceMs()) {
+      return req.error(400, 'Exit Date/Time cannot be in the future');
+    }
+
+    const sSecurityOfficer = (securityOfficer || req.user?.id || 'SYSTEM').toString().trim() || 'SYSTEM';
+    const sRemarks = (remarks || '').toString().trim();
+
     // Create Gate Exit record
-    const now = new Date();
     const oExitPayload = {
       gateExitNumber,
       gateEntry_ID: gateEntryID,
       gateEntryNumber: entry.gateEntryNumber,
-      exitDate: now.toISOString().split('T')[0],
-      exitTime: now.toTimeString().slice(0, 8),
-      securityOfficer: req.user?.id || 'SYSTEM'
+      exitDate: sExitDate,
+      exitTime: sExitTime,
+      securityOfficer: sSecurityOfficer
     };
+    if (sRemarks) {
+      oExitPayload.remarks = sRemarks;
+    }
     if (pass && pass.ID) {
       oExitPayload.gatePass_ID = pass.ID;
       oExitPayload.gatePassNumber = pass.gatePassNumber;
     }
     await INSERT.into(GateExit).entries(oExitPayload);
 
-    // Update Gate Entry status
-    await UPDATE(GateEntries, gateEntryID).set({
-      entryStatus: 'EXITED',
-      documentStatus: 'CLOSED'
-    });
+    // CR004: PARKED entries keep PARKED after exit (until GR or manual closure).
+    // Also treat legacy inward blank-PO entries as PARKED to avoid disappearing from GatePass flow.
+    const sEntryReferenceType = (entry.referenceType || '').toString().trim().toUpperCase();
+    const sEntryReferenceNumber = (entry.referenceNumber || '').toString().trim();
+    const bLegacyWithoutPO = sEntryReferenceType === 'PO' && !sEntryReferenceNumber;
+    const bKeepParkedAfterExit = entry.entryStatus === 'PARKED' || bLegacyWithoutPO;
+    if (bKeepParkedAfterExit) {
+      await UPDATE(GateEntries, gateEntryID).set({
+        entryStatus: 'PARKED',
+        documentStatus: 'CLOSED'
+      });
+    } else {
+      await UPDATE(GateEntries, gateEntryID).set({
+        entryStatus: 'EXITED',
+        documentStatus: 'CLOSED'
+      });
+    }
 
     // Return updated Gate Entry
     return SELECT.one.from(GateEntries, gateEntryID);
@@ -478,11 +1035,44 @@ class GatePassService extends cds.ApplicationService {
    */
   async _onGetPurchaseOrderDetails(req) {
     const { poNumber } = req.data;
+    const oLog = cds.log('gatepass-po');
     try {
       return await this._fetchPODetails(poNumber, req);
     } catch (e) {
+      this._logRemoteErrorDetails(oLog, `PO details lookup failed for ${poNumber || ''}`, e);
       if (this._isRemoteAuthorizationError(e)) {
         return req.reject(403, this._buildPOAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Function: Get Purchase Order Snapshot with quantity mapped to yearly cumulative received quantity
+   */
+  async _onGetPurchaseOrderReceivedSnapshot(req) {
+    const { poNumber } = req.data;
+    const oLog = cds.log('gatepass-po');
+    try {
+      const aRows = await this._fetchPORows(poNumber, req);
+      const aReceivedRows = await this._applyCurrentYearReceivedQuantities(poNumber, aRows, req);
+      const oFirst = aReceivedRows[0] || {};
+      return {
+        plant: oFirst.plant || '',
+        supplierNumber: oFirst.vendor || '',
+        supplierName: oFirst.vendor_name || '',
+        itemsJson: JSON.stringify(aReceivedRows || [])
+      };
+    } catch (e) {
+      this._logRemoteErrorDetails(oLog, `PO received snapshot lookup failed for ${poNumber || ''}`, e);
+      if (this._isRemoteAuthorizationError(e)) {
+        return req.reject(403, this._buildPOAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
       }
       throw e;
     }
@@ -493,18 +1083,24 @@ class GatePassService extends cds.ApplicationService {
    */
   async _onGetPurchaseOrderSnapshot(req) {
     const { poNumber } = req.data;
+    const oLog = cds.log('gatepass-po');
     try {
       const aRows = await this._fetchPORows(poNumber, req);
-      const oFirst = aRows[0] || {};
+      const aResidualRows = await this._applyCurrentYearResidualQuantities(poNumber, aRows, req);
+      const oFirst = aResidualRows[0] || {};
       return {
         plant: oFirst.plant || '',
         supplierNumber: oFirst.vendor || '',
         supplierName: oFirst.vendor_name || '',
-        itemsJson: JSON.stringify(aRows || [])
+        itemsJson: JSON.stringify(aResidualRows || [])
       };
     } catch (e) {
+      this._logRemoteErrorDetails(oLog, `PO snapshot lookup failed for ${poNumber || ''}`, e);
       if (this._isRemoteAuthorizationError(e)) {
         return req.reject(403, this._buildPOAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
       }
       throw e;
     }
@@ -515,14 +1111,19 @@ class GatePassService extends cds.ApplicationService {
    */
   async _onGetGoodsReceiptOpenItems(req) {
     const { poNumber } = req.data || {};
+    const oLog = cds.log('gatepass-gr');
     try {
       const aRows = await this._fetchGoodsReceiptOpenItems(poNumber, req);
       return {
         itemsJson: JSON.stringify(aRows)
       };
     } catch (e) {
+      this._logRemoteErrorDetails(oLog, `GR open-items lookup failed for ${poNumber || ''}`, e);
       if (this._isRemoteAuthorizationError(e)) {
         return req.reject(403, this._buildGRAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
       }
       throw e;
     }
@@ -533,7 +1134,7 @@ class GatePassService extends cds.ApplicationService {
    */
   async _onPostGoodsReceipt(req) {
     const oLog = cds.log('gatepass-gr');
-    const { gateEntryID, itemsJson } = req.data || {};
+    const { gateEntryID, itemsJson, poNumber } = req.data || {};
     if (!gateEntryID) {
       return req.error(400, 'Gate Entry is mandatory');
     }
@@ -558,17 +1159,52 @@ class GatePassService extends cds.ApplicationService {
     if (oEntry.referenceType !== 'PO') {
       return req.error(400, 'Goods Receipt is supported only for Purchase Order references');
     }
-    const sPONumber = (oEntry.referenceNumber || '').toString().trim();
+    const sPONumber = (oEntry.referenceNumber || poNumber || '').toString().trim();
     if (!sPONumber) {
       return req.error(400, 'Reference Purchase Order number is missing');
     }
+    const sInvoiceValue = (oEntry.invoiceValue || '').toString().trim();
+    const sPassRemarks = (oEntry.passRemarks || '').toString().trim();
+    let sPOHeaderText = '';
+    try {
+      sPOHeaderText = await this._fetchPOHeaderText(sPONumber, req);
+    } catch (e) {
+      this._logRemoteErrorDetails(oLog, `Failed to derive PO header text for PO ${sPONumber}`, e);
+      if (this._isRemoteAuthorizationError(e)) {
+        return req.reject(403, this._buildPOAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
+      }
+      throw e;
+    }
+    let aSavedItems = [];
+    if (oEntry.materialItemsJson) {
+      try {
+        const parsedItems = JSON.parse(oEntry.materialItemsJson);
+        aSavedItems = Array.isArray(parsedItems) ? parsedItems : [];
+      } catch (e) {
+        return req.error(400, 'Saved material item data is invalid for Goods Receipt posting');
+      }
+    }
+    const mSavedItemsByOrderItem = {};
+    aSavedItems.forEach((oSavedItem) => {
+      const sSavedOrderItem = this._normalizePOItemNumber(oSavedItem?.orderItemNumber);
+      if (sSavedOrderItem) {
+        mSavedItemsByOrderItem[sSavedOrderItem] = oSavedItem || {};
+      }
+    });
 
     let aOpenRows = [];
     try {
       aOpenRows = await this._fetchGoodsReceiptOpenItems(sPONumber, req);
     } catch (e) {
+      this._logRemoteErrorDetails(oLog, `Failed to derive GR open items for PO ${sPONumber}`, e);
       if (this._isRemoteAuthorizationError(e)) {
         return req.reject(403, this._buildGRAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
       }
       throw e;
     }
@@ -580,8 +1216,11 @@ class GatePassService extends cds.ApplicationService {
       }
     });
 
-    const sToday = new Date().toISOString().slice(0, 10);
-    const aDocs = [];
+    const oPostingDate = new Date();
+    const sPostingDate = this._toODataV2DateTime(oPostingDate);
+    const nPostingYear = oPostingDate.getFullYear();
+    const sDefaultStorageLocation = this._getDefaultGRStorageLocation();
+    const aMaterialDocItems = [];
     for (const oItem of aSelectedItems) {
       const sItemNo = this._normalizePOItemNumber(oItem?.orderItemNumber);
       const nQty = Number(oItem?.challanQuantity);
@@ -596,59 +1235,133 @@ class GatePassService extends cds.ApplicationService {
       if (!oOpenItem) {
         return req.error(400, `Order item ${sItemNo} is not open for Goods Receipt posting`);
       }
+      const sEntryUnit = (oOpenItem.purchaseOrderQuantityUnit || '').toString().trim();
+      if (!sEntryUnit) {
+        return req.error(400, `Order item ${sItemNo} is missing PO unit required for Goods Receipt posting`);
+      }
+      const oSavedItem = mSavedItemsByOrderItem[sItemNo] || {};
+      const sPreferredStorageLocation = (
+        oItem?.storageLocation ||
+        oSavedItem.storageLocation ||
+        ''
+      ).toString().trim();
 
-      const oPayload = {
-        PURCHASEREQUISITION: (oOpenItem.purchaseRequisition || '').toString(),
-        PURCHASEORDER: (oOpenItem.purchaseOrder || sPONumber).toString(),
-        PURCHASEORDERITEM: (oOpenItem.purchaseOrderItem || sItemNo).toString(),
-        PURCHASEREQUISITIONITEM: (oOpenItem.purchaseRequisitionItem || '').toString(),
-        DELIVEREDQUANTITY: nQty,
-        DELIVERYSTATUS: true,
-        DELIVERYNOTE: '',
-        MATERIALDOCUMENTHEADERTEXT: '',
-        DOCUMENTDATE: sToday,
-        POSTINGDATE: sToday,
-        ORDERQUANTITYUNIT: (oOpenItem.purchaseOrderQuantityUnit || '').toString(),
-        ORDERQUANTITYUNITISOCODE: (oOpenItem.orderQuantityUnitISOCode || '').toString(),
-        PURREQNSSPAUTHOR: '',
-        PURREQNSSPREQUESTOR: ''
-      };
-
-      oLog.info(`Posting Goods Receipt for PO ${sPONumber} item ${sItemNo}`);
+      let sStorageLocation = '';
       try {
-        const oResult = await this._callPostGoodsReceipt(oPayload, req);
-        const sMatDoc = (
-          oResult?.MATERIALDOCUMENT ||
-          oResult?.MaterialDocument ||
-          ''
-        ).toString();
-        const sMatYear = (
-          oResult?.MATERIALDOCUMENTYEAR ||
-          oResult?.MaterialDocumentYear ||
-          ''
-        ).toString();
-        aDocs.push({ materialDocument: sMatDoc, materialDocumentYear: sMatYear });
-        oLog.info(`Goods Receipt posted for PO ${sPONumber} item ${sItemNo}: ${sMatDoc}/${sMatYear}`);
+        const oStorageSource = sPreferredStorageLocation
+          ? { ...oOpenItem, storageLocation: sPreferredStorageLocation }
+          : oOpenItem;
+        sStorageLocation = await this._resolveGRStorageLocation(oStorageSource, sDefaultStorageLocation, req);
       } catch (e) {
-        oLog.error(`Goods Receipt posting failed for PO ${sPONumber} item ${sItemNo}: ${e.message}`);
-        if (e?.reason?.response?.body || e?.response?.body) {
-          oLog.error(JSON.stringify(e.reason?.response?.body || e.response?.body));
-        }
+        this._logRemoteErrorDetails(oLog, `Failed to resolve Storage Location for PO ${sPONumber} item ${sItemNo}`, e);
         if (this._isRemoteAuthorizationError(e)) {
           return req.reject(403, this._buildGRAuthorizationErrorMessage(e));
         }
+        if (this._isRemoteBusinessValidationError(e)) {
+          return req.reject(400, this._buildS4BusinessValidationErrorMessage());
+        }
         throw e;
       }
+      if (!sStorageLocation) {
+        return req.error(400, `Storage Location is required for order item ${sItemNo}. Set S4_GR_STORAGE_LOCATION if not available on PO item.`);
+      }
+      const sPlant = (oOpenItem.plant || '').toString().trim();
+      if (!sPlant) {
+        return req.error(400, `Plant is required for order item ${sItemNo} for Goods Movement posting`);
+      }
+
+      const oMaterialDocItem = {
+        GoodsMovementType: '101',
+        GoodsMovementRefDocType: 'B',
+        PurchaseOrder: (oOpenItem.purchaseOrder || sPONumber).toString(),
+        PurchaseOrderItem: this._formatPOItemForMaterialDoc(oOpenItem.purchaseOrderItem || sItemNo),
+        QuantityInEntryUnit: nQty.toFixed(3),
+        EntryUnit: sEntryUnit,
+        Plant: sPlant,
+        StorageLocation: sStorageLocation
+      };
+      const sMaterial = (oOpenItem.material || '').toString().trim();
+      if (sMaterial) {
+        oMaterialDocItem.Material = sMaterial;
+      }
+      const sBatch = (oItem?.batch || oSavedItem.batch || '').toString().trim();
+      const sDateOfManufactureInput = oItem?.dateOfManufacture || oSavedItem.dateOfManufacture;
+      const sDateOfManufacture = this._normalizeDate(sDateOfManufactureInput);
+      if (sDateOfManufacture && !this._isNormalizedDate(sDateOfManufacture)) {
+        return req.error(400, `Date of Manufacture is invalid for order item ${sItemNo}`);
+      }
+      if (sBatch) {
+        oMaterialDocItem.Batch = sBatch;
+      }
+      if (sDateOfManufacture && this._isNormalizedDate(sDateOfManufacture)) {
+        oMaterialDocItem.ManufactureDate = this._toODataV2DateTime(sDateOfManufacture);
+      }
+      aMaterialDocItems.push(oMaterialDocItem);
     }
 
-    const oFirstDoc = aDocs[0] || {};
-    return {
-      success: true,
-      materialDocument: oFirstDoc.materialDocument || '',
-      materialDocumentYear: oFirstDoc.materialDocumentYear || '',
-      postedItems: aDocs.length,
-      message: `Goods Receipt posted for ${aDocs.length} item(s)`
+    const oPayload = {
+      DocumentDate: sPostingDate,
+      PostingDate: sPostingDate,
+      GoodsMovementCode: '01',
+      MaterialDocumentHeaderText: this._truncateMaterialDocumentHeaderText(sPOHeaderText || sPassRemarks || ''),
+      to_MaterialDocumentItem: {
+        results: aMaterialDocItems
+      }
     };
+    if (sInvoiceValue) {
+      oPayload.ReferenceDocument = sInvoiceValue;
+    }
+
+    oLog.info(`Posting Goods Receipt for PO ${sPONumber} with ${aMaterialDocItems.length} item(s) via API_MATERIAL_DOCUMENT_SRV`);
+    try {
+      const oResultRaw = await this._callPostGoodsReceipt(oPayload, req);
+      const oResult = this._unwrapODataPayload(oResultRaw);
+      const oFirstItemResult = this._normalizeCollection(oResult?.to_MaterialDocumentItem)[0] || {};
+      const sMatDoc = (
+        this._pickFirstValue(oResult, ['MaterialDocument', 'MATERIALDOCUMENT']) ||
+        this._pickFirstValue(oFirstItemResult, ['MaterialDocument', 'MATERIALDOCUMENT']) ||
+        ''
+      ).toString();
+      const sMatYear = (
+        this._pickFirstValue(oResult, ['MaterialDocumentYear', 'MATERIALDOCUMENTYEAR']) ||
+        this._pickFirstValue(oFirstItemResult, ['MaterialDocumentYear', 'MATERIALDOCUMENTYEAR']) ||
+        ''
+      ).toString();
+      let bTrackerUpdated = true;
+      try {
+        await this._upsertPOGRTrackerFromPostedItems(sPONumber, aMaterialDocItems, nPostingYear, oPostingDate, req);
+      } catch (trackerError) {
+        bTrackerUpdated = false;
+        oLog.error(`Local yearly GR tracker update failed for PO ${sPONumber}: ${trackerError.message}`);
+      }
+      oLog.info(`Goods Receipt posted for PO ${sPONumber}: ${sMatDoc}/${sMatYear}`);
+
+      // CR004: After GR, transition entry to EXITED if it was previously exited (CLOSED) but held back as PARKED/CREATED waiting for PO/GR
+      if (oEntry.entryStatus === 'PARKED' || oEntry.documentStatus === 'CLOSED') {
+        await UPDATE(this.entities.GateEntries, gateEntryID).set({
+          entryStatus: 'EXITED'
+        });
+      }
+
+      return {
+        success: true,
+        materialDocument: sMatDoc,
+        materialDocumentYear: sMatYear,
+        postedItems: aMaterialDocItems.length,
+        message: bTrackerUpdated
+          ? `Goods Receipt posted for ${aMaterialDocItems.length} item(s)`
+          : `Goods Receipt posted for ${aMaterialDocItems.length} item(s); local yearly tracker update failed`
+      };
+    } catch (e) {
+      this._logRemoteErrorDetails(oLog, `Goods Receipt posting failed for PO ${sPONumber}`, e);
+      if (this._isRemoteAuthorizationError(e)) {
+        return req.reject(403, this._buildGRAuthorizationErrorMessage(e));
+      }
+      if (this._isRemoteBusinessValidationError(e)) {
+        return req.reject(400, this._buildS4BusinessValidationErrorMessage());
+      }
+      throw e;
+    }
   }
 
   /**
@@ -686,6 +1399,9 @@ class GatePassService extends cds.ApplicationService {
     }
 
     const sMode = this._getPOSourceMode();
+    if (this._preferMockPOInLocalAutoMode(sMode)) {
+      return this._getMockPORows(sPONumber);
+    }
     if (sMode === 'mock') {
       return this._getMockPORows(sPONumber);
     }
@@ -709,6 +1425,88 @@ class GatePassService extends cds.ApplicationService {
     }
   }
 
+  async _fetchPOHeaderText(poNumber, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    if (!sPONumber) {
+      return '';
+    }
+
+    const sMode = this._getPOSourceMode();
+    if (this._preferMockPOInLocalAutoMode(sMode)) {
+      return this._getMockPOHeaderText(sPONumber);
+    }
+    if (sMode === 'mock') {
+      return this._getMockPOHeaderText(sPONumber);
+    }
+    if (sMode === 'live') {
+      return this._fetchLivePOHeaderText(sPONumber, req);
+    }
+
+    try {
+      return await this._fetchLivePOHeaderText(sPONumber, req);
+    } catch (e) {
+      cds.log('gatepass-po').warn(`Live PO header text lookup failed for ${sPONumber}. Falling back to mock. ${e.message}`);
+      return this._getMockPOHeaderText(sPONumber);
+    }
+  }
+
+  _getMockPOHeaderText(poNumber) {
+    const aMockRows = this._getMockPORows(poNumber);
+    if (!aMockRows.length) {
+      return '';
+    }
+    const sHeaderText = this._pickFirstValue(aMockRows[0], [
+      'po_header_text',
+      'headerText',
+      'purchase_order_header_text',
+      'plain_long_text'
+    ]) || '';
+    return this._truncateMaterialDocumentHeaderText(sHeaderText);
+  }
+
+  async _fetchLivePOHeaderText(poNumber, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    if (!sPONumber) {
+      return '';
+    }
+    const sPOServiceRoot = this._getPOServiceRoot();
+    const sEscapedPONumber = this._escapeODataString(sPONumber);
+    const sNotesPath = this._buildS4Path(
+      sPOServiceRoot,
+      `/PurchaseOrderNote?$filter=PurchaseOrder eq '${sEscapedPONumber}'&$select=PurchaseOrder,TextObjectType,Language,PlainLongText&$top=50`
+    );
+    const oPOService = await this._getPOService();
+    const oRemoteClient = req ? oPOService.tx(req) : oPOService;
+    const oResponse = await oRemoteClient.send({
+      method: 'GET',
+      path: sNotesPath
+    });
+    this._throwIfBlockingSAPMessages(oResponse, sPONumber);
+    const aNotes = this._normalizeCollection(oResponse);
+    const sHeaderText = aNotes
+      .map((oNote) => (oNote?.PlainLongText || '').toString().trim())
+      .find((sText) => !!sText) || '';
+    return this._truncateMaterialDocumentHeaderText(sHeaderText);
+  }
+
+  _truncateMaterialDocumentHeaderText(vText) {
+    const sText = (vText || '').toString().trim();
+    if (!sText) {
+      return '';
+    }
+    return sText.slice(0, 25);
+  }
+
+  _preferMockPOInLocalAutoMode(sMode) {
+    if (sMode !== 'auto') {
+      return false;
+    }
+    if (process.env.PO_SOURCE) {
+      return false;
+    }
+    const bRunningInCF = !!process.env.VCAP_APPLICATION || !!process.env.VCAP_SERVICES;
+    return !bRunningInCF;
+  }
   _getPOSourceMode() {
     const sConfigured = (
       process.env.PO_SOURCE ||
@@ -741,7 +1539,7 @@ class GatePassService extends cds.ApplicationService {
 
     const sEscapedPONumber = this._escapeODataString(sPONumber);
     const sHeaderPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrder('${sEscapedPONumber}')?$select=PurchaseOrder,Supplier`);
-    const sItemsPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrderItem?$filter=PurchaseOrder eq '${sEscapedPONumber}'&$select=PurchaseOrder,PurchaseOrderItem,Material,PurchaseOrderItemText,OrderQuantity,Plant`);
+    const sItemsPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrderItem?$filter=PurchaseOrder eq '${sEscapedPONumber}'&$select=PurchaseOrder,PurchaseOrderItem,Material,PurchaseOrderItemText,OrderQuantity,Plant,PurchaseOrderQuantityUnit,PurchaseRequisition,PurchaseRequisitionItem`);
     const sSupplierAddressPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrder('${sEscapedPONumber}')/_SupplierAddress?$select=AddresseeFullName,OrganizationName1,OrganizationName2`);
     const oPOService = await this._getPOService();
     const oRemoteClient = req ? oPOService.tx(req) : oPOService;
@@ -804,38 +1602,32 @@ class GatePassService extends cds.ApplicationService {
     if (!sPONumber) {
       return [];
     }
-    const sGRServiceRoot = this._getGRServiceRoot();
-    const sEscapedPONumber = this._escapeODataString(sPONumber);
-    const sPath = this._buildS4Path(sGRServiceRoot, `/A_SSPOpenItemGoodsReceipt?$filter=PurchaseOrder eq '${sEscapedPONumber}' and DeliveryStatus eq false&$select=PurchaseRequisition,PurchaseOrder,PurchaseOrderItem,PurchaseRequisitionItem,DeliveredQuantity,DeliveryStatus,PurchaseOrderQuantityUnit,OrderQuantityUnitISOCode`);
-    const oGRService = await this._getGRService();
-    const oRemoteClient = req ? oGRService.tx(req) : oGRService;
     try {
-      const oResponse = await oRemoteClient.send({
-        method: 'GET',
-        path: sPath
-      });
-      this._throwIfBlockingSAPMessages(oResponse, sPONumber);
-      const aRows = this._normalizeCollection(oResponse).map((oRow) => this._mapGROpenItem(oRow));
-      return aRows.filter((oRow) => !oRow.deliveryStatus);
+      const aRows = await this._fetchPORows(sPONumber, req);
+      return aRows
+        .map((oRow) => this._mapGROpenItem(oRow, sPONumber))
+        .filter((oRow) => oRow.purchaseOrderItem && !oRow.deliveryStatus);
     } catch (e) {
-      cds.log('gatepass-gr').error(`Failed to fetch Goods Receipt open items for PO ${sPONumber}: ${e.message}`);
+      cds.log('gatepass-gr').error(`Failed to derive Goods Receipt candidates for PO ${sPONumber}: ${e.message}`);
       if (e?.reason?.response?.body || e?.response?.body) {
         cds.log('gatepass-gr').error(JSON.stringify(e.reason?.response?.body || e.response?.body));
       }
       throw e;
     }
   }
-
-  _mapGROpenItem(oRow) {
+  _mapGROpenItem(oRow, poNumber) {
     return {
-      purchaseRequisition: this._pickFirstValue(oRow, ['PurchaseRequisition', 'purchaseRequisition']) || '',
-      purchaseOrder: this._pickFirstValue(oRow, ['PurchaseOrder', 'purchaseOrder']) || '',
-      purchaseOrderItem: this._pickFirstValue(oRow, ['PurchaseOrderItem', 'purchaseOrderItem']) || '',
-      purchaseRequisitionItem: this._pickFirstValue(oRow, ['PurchaseRequisitionItem', 'purchaseRequisitionItem']) || '',
-      deliveredQuantity: Number(this._pickFirstValue(oRow, ['DeliveredQuantity', 'deliveredQuantity']) || 0),
-      deliveryStatus: this._toBoolean(this._pickFirstValue(oRow, ['DeliveryStatus', 'deliveryStatus'])),
-      purchaseOrderQuantityUnit: this._pickFirstValue(oRow, ['PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || '',
-      orderQuantityUnitISOCode: this._pickFirstValue(oRow, ['OrderQuantityUnitISOCode', 'orderQuantityUnitISOCode']) || ''
+      purchaseRequisition: this._pickFirstValue(oRow, ['purchase_requisition', 'PurchaseRequisition', 'purchaseRequisition']) || '',
+      purchaseOrder: this._pickFirstValue(oRow, ['po_no', 'PurchaseOrder', 'purchaseOrder']) || poNumber || '',
+      purchaseOrderItem: this._normalizePOItemNumber(this._pickFirstValue(oRow, ['item_no', 'PurchaseOrderItem', 'purchaseOrderItem']) || ''),
+      purchaseRequisitionItem: this._pickFirstValue(oRow, ['purchase_requisition_item', 'PurchaseRequisitionItem', 'purchaseRequisitionItem']) || '',
+      deliveredQuantity: Number(this._pickFirstValue(oRow, ['delivered_quantity', 'DeliveredQuantity', 'deliveredQuantity']) || 0),
+      deliveryStatus: this._toBoolean(this._pickFirstValue(oRow, ['delivery_status', 'DeliveryStatus', 'deliveryStatus']) || false),
+      purchaseOrderQuantityUnit: this._pickFirstValue(oRow, ['purchase_order_quantity_unit', 'PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || '',
+      orderQuantityUnitISOCode: this._pickFirstValue(oRow, ['order_quantity_unit_iso_code', 'OrderQuantityUnitISOCode', 'orderQuantityUnitISOCode']) || '',
+      plant: this._pickFirstValue(oRow, ['plant', 'Plant']) || '',
+      material: this._pickFirstValue(oRow, ['material_no', 'Material', 'material']) || '',
+      storageLocation: this._pickFirstValue(oRow, ['storage_location', 'StorageLocation', 'storageLocation']) || ''
     };
   }
 
@@ -870,16 +1662,112 @@ class GatePassService extends cds.ApplicationService {
     }
     return sDigits.padStart(5, '0').slice(-5);
   }
+  _getDefaultGRStorageLocation() {
+    return (
+      process.env.S4_GR_STORAGE_LOCATION ||
+      cds.env?.requires?.goodsreceipt_api?.storageLocation ||
+      cds.env?.gatepass?.grStorageLocation ||
+      ''
+    ).toString().trim();
+  }
+
+  _unwrapODataPayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return payload || {};
+    }
+    if (payload.d && typeof payload.d === 'object') {
+      return payload.d;
+    }
+    return payload;
+  }
+  _getGRDestinationName() {
+    return (
+      process.env.S4_DESTINATION ||
+      process.env.S4_API_DESTINATION ||
+      cds.env?.requires?.goodsreceipt_api?.credentials?.destination ||
+      ''
+    ).toString().trim();
+  }
+
+  _getHeaderValue(headers, headerName) {
+    if (!headers || typeof headers !== 'object') {
+      return '';
+    }
+    const sNeedle = (headerName || '').toString().toLowerCase();
+    if (!sNeedle) {
+      return '';
+    }
+    for (const [sKey, vValue] of Object.entries(headers)) {
+      if (sKey.toLowerCase() === sNeedle) {
+        return vValue;
+      }
+    }
+    return '';
+  }
+
+  _toCookieHeader(setCookieHeaderValue) {
+    const aSetCookies = Array.isArray(setCookieHeaderValue)
+      ? setCookieHeaderValue
+      : (setCookieHeaderValue ? [setCookieHeaderValue] : []);
+    return aSetCookies
+      .map((vCookie) => String(vCookie || '').split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ');
+  }
+
+  async _callPostGoodsReceiptWithExplicitCsrf(payload) {
+    const sDestination = this._getGRDestinationName();
+    if (!sDestination) {
+      throw new Error('S/4 destination for goodsreceipt_api is not configured.');
+    }
+    const sGRServiceRoot = this._getGRServiceRoot();
+    const sUrlPath = this._buildS4Path(sGRServiceRoot, '/A_MaterialDocumentHeader');
+
+    const oFetchResponse = await executeHttpRequest(
+      { destinationName: sDestination },
+      {
+        method: 'GET',
+        url: sUrlPath,
+        headers: {
+          'x-csrf-token': 'Fetch',
+          accept: 'application/json'
+        }
+      },
+      { fetchCsrfToken: false }
+    );
+
+    const vTokenHeader = this._getHeaderValue(oFetchResponse?.headers, 'x-csrf-token');
+    const sCsrfToken = Array.isArray(vTokenHeader) ? String(vTokenHeader[0] || '').trim() : String(vTokenHeader || '').trim();
+    if (!sCsrfToken) {
+      throw new Error('Failed to fetch CSRF token from API_MATERIAL_DOCUMENT_SRV.');
+    }
+    const sCookieHeader = this._toCookieHeader(this._getHeaderValue(oFetchResponse?.headers, 'set-cookie'));
+    const oHeaders = {
+      'x-csrf-token': sCsrfToken,
+      'content-type': 'application/json',
+      accept: 'application/json'
+    };
+    if (sCookieHeader) {
+      oHeaders.cookie = sCookieHeader;
+    }
+
+    const oPostResponse = await executeHttpRequest(
+      { destinationName: sDestination },
+      {
+        method: 'POST',
+        url: sUrlPath,
+        headers: oHeaders,
+        data: payload
+      },
+      { fetchCsrfToken: false }
+    );
+
+    return oPostResponse?.data || {};
+  }
 
   async _callPostGoodsReceipt(payload, req) {
-    const oGRService = await this._getGRService();
-    const oRemoteClient = req ? oGRService.tx(req) : oGRService;
-    const sGRServiceRoot = this._getGRServiceRoot();
-    return oRemoteClient.send({
-      method: 'POST',
-      path: this._buildS4Path(sGRServiceRoot, '/A_SSPOpenItemGoodsReceipt/PostGoodsReceipt'),
-      data: payload
-    });
+    void req;
+    return this._callPostGoodsReceiptWithExplicitCsrf(payload);
   }
 
   _escapeODataString(value) {
@@ -935,6 +1823,11 @@ class GatePassService extends cds.ApplicationService {
         material_no: '',
         material_description: '',
         po_qty: null,
+        purchase_requisition: '',
+        purchase_requisition_item: '',
+        purchase_order_quantity_unit: '',
+        order_quantity_unit_iso_code: '',
+        storage_location: '',
         vendor: sVendor,
         vendor_name: sVendorName,
         plant: sHeaderPlant
@@ -947,6 +1840,11 @@ class GatePassService extends cds.ApplicationService {
       material_no: this._pickFirstValue(oItem, ['Material', 'material']) || '',
       material_description: this._pickFirstValue(oItem, ['PurchaseOrderItemText', 'purchaseOrderItemText', 'MaterialName', 'materialDescription']) || '',
       po_qty: this._pickFirstValue(oItem, ['OrderQuantity', 'orderQuantity', 'RequestedQuantity', 'requestedQuantity']),
+      purchase_requisition: this._pickFirstValue(oItem, ['PurchaseRequisition', 'purchaseRequisition']) || '',
+      purchase_requisition_item: this._pickFirstValue(oItem, ['PurchaseRequisitionItem', 'purchaseRequisitionItem']) || '',
+      purchase_order_quantity_unit: this._pickFirstValue(oItem, ['PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || '',
+      order_quantity_unit_iso_code: this._pickFirstValue(oItem, ['OrderQuantityUnitISOCode', 'orderQuantityUnitISOCode']) || '',
+      storage_location: this._pickFirstValue(oItem, ['StorageLocation', 'storageLocation']) || '',
       vendor: sVendor,
       vendor_name: sVendorName,
       plant: this._pickFirstValue(oItem, ['Plant', 'plant']) || sHeaderPlant
@@ -992,6 +1890,7 @@ class GatePassService extends cds.ApplicationService {
     };
   }
 
+
   _normalizeDate(v) {
     if (!v) {
       return v;
@@ -1016,6 +1915,14 @@ class GatePassService extends cds.ApplicationService {
       }
     }
     return v;
+  }
+
+  _getCurrentTimeHHMMSS() {
+    const oNow = new Date();
+    const h = String(oNow.getHours()).padStart(2, '0');
+    const m = String(oNow.getMinutes()).padStart(2, '0');
+    const s = String(oNow.getSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s}`;
   }
 
   _normalizeTime(v) {
