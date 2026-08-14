@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@sap/cds": "^9",
+    "@cap-js/hana": "^2",
     "@cap-js/sqlite": "^2",
     "@sap/xssec": "^4",
     "@sap-cloud-sdk/http-client": "^4",
@@ -30,9 +31,14 @@
   "cds": {
     "requires": {
       "db": {
-        "kind": "sqlite",
-        "credentials": {
-          "database": "gatepass.db"
+        "[development]": {
+          "kind": "sqlite",
+          "credentials": {
+            "database": "gatepass.db"
+          }
+        },
+        "[production]": {
+          "kind": "hana"
         }
       },
       "purchaseorder_api": {
@@ -42,6 +48,12 @@
         }
       },
       "goodsreceipt_api": {
+        "kind": "odata-v4",
+        "credentials": {
+          "destination": "MY410644"
+        }
+      },
+      "billingdocument_api": {
         "kind": "odata-v4",
         "credentials": {
           "destination": "MY410644"
