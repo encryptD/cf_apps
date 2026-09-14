@@ -1,0 +1,11 @@
+COLUMN TABLE com_mdasad_gatepass_Plants (
+  createdAt TIMESTAMP,
+  createdBy NVARCHAR(255),
+  modifiedAt TIMESTAMP,
+  modifiedBy NVARCHAR(255),
+  plantCode NVARCHAR(10) NOT NULL,
+  plantName NVARCHAR(100),
+  location NVARCHAR(200),
+  address NVARCHAR(250),
+  PRIMARY KEY(plantCode)
+)

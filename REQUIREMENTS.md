@@ -46,3 +46,11 @@ A SAPUI5-based Gate Pass management application for tracking and managing visito
 - Added Display mode compact read-only section to show GatePass-related fields and material items.
 - Enforced non-editable display behavior for GatePass snapshot fields.
 - Added watermark-style visual treatment for the top movement-type header section.
+
+## Change Request 1.4.0 Scope Updates (S/4 CBO Persistence Migration)
+### Backend persistence and integration
+- CAP service contract for `/gatepass` remains unchanged for UI consumers.
+- Primary persistence for Gate Entry/Gate Pass/Gate Pass Items/Gate Exit/Plants is shifted to S/4 Custom Business Objects via destination `MY410644`.
+- Invoice number authority is `referenceNumber`; `invoiceValue` is retained only for compatibility responses.
+- Gate Pass item flow is standardized to `YY1_GATEPASSITEMS` plus `materialItemsJson` compatibility payload.
+- No historical backfill is required as part of this migration scope.

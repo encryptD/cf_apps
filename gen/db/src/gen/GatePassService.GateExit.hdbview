@@ -1,0 +1,16 @@
+VIEW GatePassService_GateExit AS SELECT
+  GateExit_0.createdAt,
+  GateExit_0.createdBy,
+  GateExit_0.modifiedAt,
+  GateExit_0.modifiedBy,
+  GateExit_0.ID,
+  GateExit_0.gateExitNumber,
+  GateExit_0.gateEntry_ID,
+  GateExit_0.gateEntryNumber,
+  GateExit_0.gatePass_ID,
+  GateExit_0.gatePassNumber,
+  GateExit_0.exitDate,
+  GateExit_0.exitTime,
+  GateExit_0.securityOfficer,
+  GateExit_0.remarks
+FROM com_mdasad_gatepass_GateExit AS GateExit_0

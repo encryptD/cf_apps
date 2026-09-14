@@ -262,17 +262,32 @@ sap.ui.define([
             return sMovementType === "I" ? oBundle.getText("enterPONumber") : oBundle.getText("enterInvoiceNumber");
         },
 
+        formatReferenceTooltip: function (sMovementType) {
+            var oI18nModel = this.getView().getModel("i18n") || this.getOwnerComponent().getModel("i18n");
+            if (!oI18nModel) {
+                return sMovementType === "I" ? "Enter PO Number" : "Enter Inv No";
+            }
+            var oBundle = oI18nModel.getResourceBundle();
+            return sMovementType === "I" ? oBundle.getText("enterPONumber") : oBundle.getText("enterInvNoTooltip");
+        },
+
         onMovementTypeChange: function (oEvent) {
             var oModel = this.getView().getModel("entry");
             var sMovement = oEvent.getParameter("selectedIndex") === 0 ? "I" : "O";
             oModel.setProperty("/movementType", sMovement);
             oModel.setProperty("/referenceType", sMovement === "I" ? "PO" : "SI");
+            oModel.setProperty("/referenceNumber", "");
+            oModel.setProperty("/poNo", "");
+            oModel.setProperty("/plant", "");
+            oModel.setProperty("/partyNumber", "");
+            oModel.setProperty("/partyName", "");
         },
 
         _populateFromPONumber: function (sPONumber) {
             var sPO = typeof sPONumber === "string" ? sPONumber.trim() : "";
             var oEntryModel = this.getView().getModel("entry");
             var oODataModel = this.getView().getModel();
+            var sReferenceType = oEntryModel.getProperty("/referenceType");
 
             // Reset dependent fields
             oEntryModel.setProperty("/plant", "");
@@ -285,21 +300,37 @@ sap.ui.define([
             }
 
             oEntryModel.setProperty("/referenceNumber", sPO);
-            if (!oODataModel || oEntryModel.getProperty("/referenceType") !== "PO") {
+            if (!oODataModel) {
                 return;
             }
-
-            var oFunction = oODataModel.bindContext("/getPurchaseOrderDetails(...)");
-            oFunction.setParameter("poNumber", sPO);
+            var oFunction;
+            if (sReferenceType === "PO") {
+                oFunction = oODataModel.bindContext("/getPurchaseOrderDetails(...)");
+                oFunction.setParameter("poNumber", sPO);
+            } else if (sReferenceType === "SI") {
+                oFunction = oODataModel.bindContext("/getSalesInvoiceDetails(...)");
+                oFunction.setParameter("invoiceNumber", sPO);
+            } else {
+                return;
+            }
             oEntryModel.setProperty("/isLoading", true);
 
             oFunction.execute().then(function () {
                 var oResult = oFunction.getBoundContext().getObject() || {};
-                oEntryModel.setProperty("/plant", oResult.plant || "");
-                oEntryModel.setProperty("/partyNumber", oResult.supplierNumber || "");
-                oEntryModel.setProperty("/partyName", oResult.supplierName || "");
+                if (sReferenceType === "PO") {
+                    oEntryModel.setProperty("/plant", oResult.plant || "");
+                    oEntryModel.setProperty("/partyNumber", oResult.supplierNumber || "");
+                    oEntryModel.setProperty("/partyName", oResult.supplierName || "");
+                } else {
+                    oEntryModel.setProperty("/plant", oResult.plant || "");
+                    oEntryModel.setProperty("/partyNumber", oResult.customerNumber || "");
+                    oEntryModel.setProperty("/partyName", oResult.customerName || "");
+                    if (oResult.vehicleNumber) {
+                        oEntryModel.setProperty("/vehicleNumber", oResult.vehicleNumber);
+                    }
+                }
             }.bind(this)).catch(function () {
-                MessageToast.show("Could not fetch Purchase Order details");
+                MessageToast.show(sReferenceType === "PO" ? "Could not fetch Purchase Order details" : "Could not fetch Sales Invoice details");
             }).finally(function () {
                 oEntryModel.setProperty("/isLoading", false);
             });
@@ -355,6 +386,10 @@ sap.ui.define([
             }
             if (!oEntryDate) {
                 MessageBox.error("Entry Date is mandatory");
+                return;
+            }
+            if (oData.movementType === "O" && !String(oData.referenceNumber || "").trim()) {
+                MessageBox.error("Reference Number (Invoice) is mandatory for Outward movement");
                 return;
             }
 

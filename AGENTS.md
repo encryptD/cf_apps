@@ -19,6 +19,8 @@ This document describes the development agents and their responsibilities for th
 
 - Canonical workflow for agent execution: `.agents/workflows/sapui5-cap-feature-workflow.yaml`
 - Agents must follow this workflow for all feature work and bugfixes in this repository.
+- Reusable implementation template for feature/enhancement delivery: `.agents/templates/feature-enhancement-template.md`
+- Use this template at the start of every new feature/enhancement ticket to lock scope, checkpoints, and token budget guardrails.
 
 ## High-priority SAPUI5/CAP Rules (from project learnings)
 

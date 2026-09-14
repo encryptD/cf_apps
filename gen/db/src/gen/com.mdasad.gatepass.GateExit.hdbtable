@@ -1,0 +1,17 @@
+COLUMN TABLE com_mdasad_gatepass_GateExit (
+  createdAt TIMESTAMP,
+  createdBy NVARCHAR(255),
+  modifiedAt TIMESTAMP,
+  modifiedBy NVARCHAR(255),
+  ID NVARCHAR(36) NOT NULL,
+  gateExitNumber NVARCHAR(20),
+  gateEntry_ID NVARCHAR(36) NOT NULL,
+  gateEntryNumber NVARCHAR(20),
+  gatePass_ID NVARCHAR(36),
+  gatePassNumber NVARCHAR(20),
+  exitDate DATE NOT NULL,
+  exitTime TIME,
+  securityOfficer NVARCHAR(100),
+  remarks NVARCHAR(500),
+  PRIMARY KEY(ID)
+)

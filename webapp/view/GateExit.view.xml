@@ -52,10 +52,10 @@
                         <core:Title text="{i18n>exitTimestamps}"/>
 
                         <Label text="{i18n>exitDate}"/>
-                        <DatePicker dateValue="{exit>/exitDate}" editable="false"/>
+                        <DatePicker id="exitDatePicker" dateValue="{exit>/exitDate}" editable="true" enabled="true"/>
 
                         <Label text="{i18n>exitTime}"/>
-                        <TimePicker dateValue="{exit>/exitTime}" editable="false"/>
+                        <TimePicker id="exitTimePicker" dateValue="{exit>/exitTime}" editable="true" enabled="true"/>
 
                         <core:Title text="{i18n>securityInfo}"/>
 

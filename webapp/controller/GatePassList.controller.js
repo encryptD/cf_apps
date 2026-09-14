@@ -42,11 +42,15 @@ sap.ui.define([
                 isGoodsReceiptBusy: false,
                 isReferenceBusy: false,
                 selectedGRItems: [],
-                grOpenItemsByOrderItem: {}
+                grOpenItemsByOrderItem: {},
+                showChallanColumn: true,
+                showPlantColumn: true,
+                showStorageLocationColumn: true
             });
             this.getView().setModel(oModel, "pass");
             this._mPOItemsByNumber = {};
             this._mPOHeaderByNumber = {};
+            this._mInvoiceSnapshotByNumber = {};
             this._mGROpenItemsByOrderItem = {};
             this._mStorageLocationsByPlant = {};
             this._iPOReferenceRequestSeq = 0;
@@ -69,6 +73,13 @@ sap.ui.define([
                 return oHeader;
             }
             return null;
+        },
+
+        _resolvePartyFromInvoice: function (sReferenceType, sReferenceNumber) {
+            if (sReferenceType !== "SI" || !sReferenceNumber) {
+                return null;
+            }
+            return this._mInvoiceSnapshotByNumber[sReferenceNumber] || null;
         },
 
         _fromEdmDate: function (v) {
@@ -129,6 +140,7 @@ sap.ui.define([
             var oTable = this.byId("itemsTable");
             var aItems = oModel.getProperty("/items") || [];
             var sReferenceType = oModel.getProperty("/referenceType");
+            var sMovementType = oModel.getProperty("/movementType");
             var aSelectedItems = [];
             if (oTable && oTable.getSelectedIndices) {
                 oTable.getSelectedIndices().forEach(function (iIndex) {
@@ -153,18 +165,19 @@ sap.ui.define([
                 return Number(oItem.challanQuantity) > 0;
             });
             oModel.setProperty("/selectedGRItems", aSelectedItems);
-            oModel.setProperty("/isGoodsReceiptEnabled", sReferenceType === "PO" && !oModel.getProperty("/isGoodsReceiptBusy") && bQtyValid);
+            oModel.setProperty("/isGoodsReceiptEnabled", sMovementType === "I" && sReferenceType === "PO" && !oModel.getProperty("/isGoodsReceiptBusy") && bQtyValid);
         },
 
         _applyGoodsReceiptEligibilityToItems: function () {
             var oModel = this.getView().getModel("pass");
             var aItems = oModel.getProperty("/items") || [];
             var sReferenceType = oModel.getProperty("/referenceType");
+            var sMovementType = oModel.getProperty("/movementType");
             var mOpenByItem = this._mGROpenItemsByOrderItem || {};
             var aUpdated = aItems.map(function (oItem) {
                 var sItemNo = this._normalizeOrderItemNumber(oItem.orderItemNumber);
                 return Object.assign({}, oItem, {
-                    grSelectable: sReferenceType === "PO" && !!mOpenByItem[sItemNo]
+                    grSelectable: sMovementType === "I" && sReferenceType === "PO" && !!mOpenByItem[sItemNo]
                 });
             }.bind(this));
             oModel.setProperty("/items", aUpdated);
@@ -176,7 +189,8 @@ sap.ui.define([
             var oModel = this.getView().getModel("pass");
             var sReferenceType = oModel.getProperty("/referenceType");
             var sReferenceNumber = (oModel.getProperty("/referenceNumber") || "").trim();
-            if (sReferenceType !== "PO" || !sReferenceNumber) {
+            var sMovementType = oModel.getProperty("/movementType");
+            if (sMovementType !== "I" || sReferenceType !== "PO" || !sReferenceNumber) {
                 this._mGROpenItemsByOrderItem = {};
                 this._applyGoodsReceiptEligibilityToItems();
                 return Promise.resolve();
@@ -190,7 +204,7 @@ sap.ui.define([
             }
             var oFunction = oODataModel.bindContext("/getGoodsReceiptOpenItems(...)");
             oFunction.setParameter("poNumber", sReferenceNumber);
-            return oFunction.execute().then(function () {
+            var fnOnOpenItemsLoaded = function () {
                 var oResult = oFunction.getBoundContext().getObject() || {};
                 var aOpenItems = [];
                 if (oResult.itemsJson) {
@@ -208,12 +222,14 @@ sap.ui.define([
                     }
                 }.bind(this));
                 this._applyGoodsReceiptEligibilityToItems();
-            }.bind(this)).catch(function () {
+            }.bind(this);
+            var fnOnOpenItemsFailed = function () {
                 this._mGROpenItemsByOrderItem = {};
                 this._applyGoodsReceiptEligibilityToItems();
                 MessageToast.show(this._getI18nText("grOpenItemsLoadFailed", null, "Could not load Goods Receipt open items"));
-            }.bind(this));
-        },
+            }.bind(this);
+            return oFunction.execute().then(fnOnOpenItemsLoaded).catch(fnOnOpenItemsFailed);
+x        },
 
         _cachePORows: function (sPONumber, aRows) {
             var sKey = (sPONumber || "").toString();
@@ -252,6 +268,85 @@ sap.ui.define([
             return oFunction.execute().then(function () {
                 return oFunction.getBoundContext().getObject() || {};
             });
+        },
+
+        _cacheSalesInvoiceSnapshot: function (sInvoiceNumber, oSnapshot) {
+            var sKey = (sInvoiceNumber || "").toString().trim();
+            if (!sKey || !oSnapshot) {
+                return;
+            }
+            var aItems = [];
+            if (oSnapshot.itemsJson) {
+                try {
+                    aItems = JSON.parse(oSnapshot.itemsJson) || [];
+                } catch (e) {
+                    aItems = [];
+                }
+            }
+            this._mInvoiceSnapshotByNumber[sKey] = {
+                partyNumber: oSnapshot.customerNumber || "",
+                partyName: oSnapshot.customerName || "",
+                plant: oSnapshot.plant || "",
+                items: Array.isArray(aItems) ? aItems : []
+            };
+        },
+
+        _fetchSalesInvoiceSnapshot: function (sInvoiceNumber) {
+            var oODataModel = this.getView().getModel();
+            if (!oODataModel) {
+                return Promise.reject(new Error("OData model is not available"));
+            }
+            var oFunction = oODataModel.bindContext("/getSalesInvoiceDetails(...)");
+            oFunction.setParameter("invoiceNumber", sInvoiceNumber);
+            return oFunction.execute().then(function () {
+                return oFunction.getBoundContext().getObject() || {};
+            });
+        },
+
+        _loadSalesInvoiceReferenceData: function (sReferenceType, sReferenceNumber, bSkipItemPopulate) {
+            var sInvoiceNumber = (sReferenceNumber || "").toString().trim();
+            var oModel = this.getView().getModel("pass");
+            if (sReferenceType !== "SI" || !sInvoiceNumber) {
+                oModel.setProperty("/isReferenceBusy", false);
+                return Promise.resolve();
+            }
+
+            oModel.setProperty("/isReferenceBusy", true);
+            var oCachedSnapshot = this._resolvePartyFromInvoice("SI", sInvoiceNumber);
+            if (oCachedSnapshot) {
+                oModel.setProperty("/partyNumber", oCachedSnapshot.partyNumber || "");
+                oModel.setProperty("/partyName", oCachedSnapshot.partyName || "");
+                if (oCachedSnapshot.plant) {
+                    oModel.setProperty("/plant", oCachedSnapshot.plant);
+                }
+                if (!bSkipItemPopulate) {
+                    this._populateItemsFromReference("SI", sInvoiceNumber);
+                }
+            }
+
+            return this._fetchSalesInvoiceSnapshot(sInvoiceNumber).then(function (oSnapshot) {
+                this._cacheSalesInvoiceSnapshot(sInvoiceNumber, oSnapshot);
+                var bStillSelected = oModel.getProperty("/referenceType") === "SI" &&
+                    (oModel.getProperty("/referenceNumber") || "") === sInvoiceNumber;
+                if (!bStillSelected) {
+                    return;
+                }
+                var oResolved = this._resolvePartyFromInvoice("SI", sInvoiceNumber) || {};
+                oModel.setProperty("/partyNumber", oResolved.partyNumber || oModel.getProperty("/partyNumber"));
+                oModel.setProperty("/partyName", oResolved.partyName || oModel.getProperty("/partyName"));
+                if (oResolved.plant) {
+                    oModel.setProperty("/plant", oResolved.plant);
+                }
+                if (!bSkipItemPopulate) {
+                    this._populateItemsFromReference("SI", sInvoiceNumber);
+                }
+            }.bind(this)).catch(function () {
+                // Keep existing values and cached fallback behavior
+            }).finally(function () {
+                oModel.setProperty("/isReferenceBusy", false);
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+                this._updatePlantColumnVisibility();
+            }.bind(this));
         },
 
         _loadPOReferenceData: function (sReferenceType, sReferenceNumber, bSkipItemPopulate) {
@@ -325,7 +420,37 @@ sap.ui.define([
 
         _populateItemsFromReference: function (sReferenceType, sReferenceNumber) {
             var oModel = this.getView().getModel("pass");
-            if (sReferenceType !== "PO" || !sReferenceNumber) {
+            if (!sReferenceNumber) {
+                oModel.setProperty("/items", []);
+                this._applyGoodsReceiptSelectionState();
+                return;
+            }
+            if (sReferenceType === "SI") {
+                var oInvoiceSnapshot = this._resolvePartyFromInvoice("SI", sReferenceNumber);
+                var aInvoiceItems = (oInvoiceSnapshot && Array.isArray(oInvoiceSnapshot.items)) ? oInvoiceSnapshot.items : [];
+                var aOutwardItems = aInvoiceItems.map(function (oItem, iIndex) {
+                    return {
+                        itemNumber: iIndex + 1,
+                        materialCode: oItem.materialCode || "",
+                        materialDescription: oItem.materialDescription || "",
+                        quantity: oItem.quantity !== undefined && oItem.quantity !== null ? String(oItem.quantity) : "",
+                        challanQuantity: "",
+                        unitOfMeasure: oItem.unitOfMeasure || "",
+                        orderItemNumber: oItem.orderItemNumber || "",
+                        plant: oItem.plant || "",
+                        plantOptions: [],
+                        storageLocationOptions: [],
+                        storageLocation: oItem.storageLocation || "",
+                        batch: "",
+                        dateOfManufacture: null,
+                        grSelectable: false
+                    };
+                });
+                oModel.setProperty("/items", aOutwardItems);
+                this._applyGoodsReceiptSelectionState();
+                return;
+            }
+            if (sReferenceType !== "PO") {
                 oModel.setProperty("/items", []);
                 this._applyGoodsReceiptSelectionState();
                 return;
@@ -380,6 +505,7 @@ sap.ui.define([
         _clearForm: function () {
             var oModel = this.getView().getModel("pass");
             oModel.setProperty("/mode", "Create");
+            oModel.setProperty("/movementType", "I");
             oModel.setProperty("/gateEntry_ID", "");
             oModel.setProperty("/gateEntryNumber", "");
             oModel.setProperty("/referenceType", "");
@@ -405,6 +531,9 @@ sap.ui.define([
             oModel.setProperty("/isReferenceBusy", false);
             oModel.setProperty("/selectedGRItems", []);
             oModel.setProperty("/grOpenItemsByOrderItem", {});
+            oModel.setProperty("/showChallanColumn", true);
+            oModel.setProperty("/showPlantColumn", true);
+            oModel.setProperty("/showStorageLocationColumn", true);
             this._iPOReferenceRequestSeq = (this._iPOReferenceRequestSeq || 0) + 1;
             this._mGROpenItemsByOrderItem = {};
             this._clearItemsTableSelection();
@@ -550,14 +679,17 @@ sap.ui.define([
 
         _applyGateEntryToPassModel: function (oData) {
             var oModel = this.getView().getModel("pass");
+            var sMovementType = (oData.movementType || "I").toString().trim().toUpperCase();
             oModel.setProperty("/gateEntry_ID", oData.ID);
             oModel.setProperty("/gateEntryNumber", oData.gateEntryNumber);
-            oModel.setProperty("/movementType", oData.movementType);
+            oModel.setProperty("/movementType", sMovementType);
             oModel.setProperty("/referenceType", oData.referenceType);
             oModel.setProperty("/referenceNumber", oData.referenceNumber);
-            var oPOParty = this._resolvePartyFromPO(oData.referenceType, oData.referenceNumber);
-            oModel.setProperty("/partyNumber", oPOParty ? oPOParty.partyNumber : oData.partyNumber);
-            oModel.setProperty("/partyName", oPOParty ? oPOParty.partyName : oData.partyName);
+            var oResolvedParty = oData.referenceType === "SI"
+                ? this._resolvePartyFromInvoice(oData.referenceType, oData.referenceNumber)
+                : this._resolvePartyFromPO(oData.referenceType, oData.referenceNumber);
+            oModel.setProperty("/partyNumber", oResolvedParty ? oResolvedParty.partyNumber : oData.partyNumber);
+            oModel.setProperty("/partyName", oResolvedParty ? oResolvedParty.partyName : oData.partyName);
             oModel.setProperty("/vehicleNumber", oData.vehicleNumber);
             oModel.setProperty("/vehicleType", oData.vehicleType);
             oModel.setProperty("/transporterName", oData.transporterName);
@@ -580,8 +712,8 @@ sap.ui.define([
                     var aItems = (Array.isArray(aSavedItems) ? aSavedItems : []).map(function (oItem) {
                         var sItemPlant = (oItem.plant || "").toString().trim();
                         return Object.assign({}, oItem, {
-                            plantOptions: aPlantKeys,
-                            storageLocationOptions: this._getStorageLocationOptionsForPlant(sItemPlant)
+                            plantOptions: sMovementType === "I" ? aPlantKeys : [],
+                            storageLocationOptions: sMovementType === "I" ? this._getStorageLocationOptionsForPlant(sItemPlant) : []
                         });
                     }.bind(this));
                     oModel.setProperty("/items", aItems);
@@ -593,7 +725,15 @@ sap.ui.define([
             if (!bHasSavedItems) {
                 this._populateItemsFromReference(oData.referenceType, oData.referenceNumber);
             }
-            this._loadPOReferenceData(oData.referenceType, oData.referenceNumber, bHasSavedItems);
+            if (oData.referenceType === "PO") {
+                this._loadPOReferenceData(oData.referenceType, oData.referenceNumber, bHasSavedItems);
+            } else if (oData.referenceType === "SI") {
+                this._loadSalesInvoiceReferenceData(oData.referenceType, oData.referenceNumber, bHasSavedItems);
+            } else {
+                this._loadGoodsReceiptOpenItemsForCurrentReference();
+                this._updatePlantColumnVisibility();
+            }
+            this._updatePlantColumnVisibility();
         },
 
         _toEdmDate: function (oDate) {
@@ -648,9 +788,13 @@ sap.ui.define([
             var oModel = this.getView().getModel("pass");
             oModel.setProperty("/referenceNumber", sValue);
             var sRefType = oModel.getProperty("/referenceType");
-            if (sRefType === "PO") {
+            var sMovementType = oModel.getProperty("/movementType");
+            if (sRefType === "PO" && sMovementType === "I") {
                 this._populateItemsFromReference("PO", sValue);
                 this._loadPOReferenceData("PO", sValue, false);
+            } else if (sRefType === "SI" && sMovementType === "O") {
+                this._populateItemsFromReference("SI", sValue);
+                this._loadSalesInvoiceReferenceData("SI", sValue, false);
             } else {
                 this._loadGoodsReceiptOpenItemsForCurrentReference();
             }
@@ -674,10 +818,22 @@ sap.ui.define([
             return sMovementType === "I" ? oBundle.getText("purchaseOrder") : oBundle.getText("salesInvoice");
         },
 
+        formatReferencePlaceholder: function (sMovementType) {
+            return sMovementType === "O" ? this._getI18nText("enterInvoiceNumber", null, "Enter Invoice Number") : this._getI18nText("enterPONumber", null, "Enter PO Number");
+        },
+
+        formatReferenceTooltip: function (sMovementType) {
+            return sMovementType === "O" ? this._getI18nText("enterInvNoTooltip", null, "Enter Inv No") : this._getI18nText("enterPONumber", null, "Enter PO Number");
+        },
+
+        formatItemQuantityLabel: function (sMovementType) {
+            return sMovementType === "O" ? this._getI18nText("billedQuantity", null, "Billed Qty") : this._getI18nText("orderQuantity", null, "Order Quantity");
+        },
+
         onAddItem: function () {
             var oModel = this.getView().getModel("pass");
             var aItems = oModel.getProperty("/items") || [];
-            // CR004: include plant + location options, plant editable only without PO
+            var sMovementType = oModel.getProperty("/movementType");
             var aPlantKeys = this._getAvailablePlantKeys();
             aItems.push({
                 itemNumber: aItems.length + 1,
@@ -690,7 +846,7 @@ sap.ui.define([
                 batch: "",
                 dateOfManufacture: null,
                 plant: "",
-                plantOptions: aPlantKeys,
+                plantOptions: sMovementType === "I" ? aPlantKeys : [],
                 storageLocationOptions: []
             });
             oModel.setProperty("/items", aItems);
@@ -775,19 +931,38 @@ sap.ui.define([
             }.bind(this));
         },
 
-        _extractErrorMessage: function (oError) {
-            if (oError?.error?.message) {
-                return oError.error.message;
+        _extractErrorMessage: function (oError, sFallbackKey, sFallbackText) {
+            var sMessage = "";
+            if (oError && oError.error && oError.error.message) {
+                sMessage = oError.error.message;
             }
-            if (oError?.message) {
-                return oError.message;
+            if (!sMessage && oError && oError.cause && oError.cause.error && oError.cause.error.message) {
+                sMessage = oError.cause.error.message;
             }
-            return this._getI18nText("grPostFailed", null, "Goods Receipt posting failed");
+            if (!sMessage && oError && oError.cause && oError.cause.responseText) {
+                try {
+                    var oPayload = JSON.parse(oError.cause.responseText);
+                    sMessage = (oPayload && oPayload.error && (oPayload.error.message?.value || oPayload.error.message)) || "";
+                } catch (e) {
+                    sMessage = "";
+                }
+            }
+            if (!sMessage && oError && oError.cause && oError.cause.message) {
+                sMessage = oError.cause.message;
+            }
+            if (!sMessage && oError && oError.message) {
+                sMessage = oError.message;
+            }
+            if (sMessage) {
+                return sMessage;
+            }
+            return this._getI18nText(sFallbackKey || "grPostFailed", null, sFallbackText || "Request failed");
         },
 
         onSavePress: function () {
             var oModel = this.getView().getModel("pass");
             var oData = oModel.getData();
+            var bIsOutward = oData.movementType === "O";
             var oPassDate = this.byId("passDatePicker").getDateValue();
             var oPassTime = this.byId("passTimePicker").getDateValue();
             var oInvoiceDate = this.byId("invoiceDatePicker").getDateValue();
@@ -803,6 +978,14 @@ sap.ui.define([
             }
             if (!oPassDate) {
                 MessageBox.error("Pass Date is mandatory");
+                return;
+            }
+            if (!oInvoiceDate) {
+                MessageBox.error("Invoice Date is mandatory");
+                return;
+            }
+            if (bIsOutward && !(oData.referenceNumber || "").toString().trim()) {
+                MessageBox.error("Reference Number (Invoice) is mandatory for Outward movement");
                 return;
             }
 
@@ -821,8 +1004,7 @@ sap.ui.define([
                     MessageBox.error("Material Description is mandatory for all items");
                     return;
                 }
-                // CR004: Challan Quantity mandatory for all, Quantity validated only if present
-                if (!aItems[i].challanQuantity || Number.isNaN(parseFloat(aItems[i].challanQuantity)) || parseFloat(aItems[i].challanQuantity) <= 0) {
+                if (!bIsOutward && (!aItems[i].challanQuantity || Number.isNaN(parseFloat(aItems[i].challanQuantity)) || parseFloat(aItems[i].challanQuantity) <= 0)) {
                     MessageBox.error(this._getI18nText("challanQtyMandatory", null, "Challan Quantity must be greater than zero for all items"));
                     return;
                 }
@@ -830,28 +1012,34 @@ sap.ui.define([
                     MessageBox.error("Quantity must be a valid number for all items");
                     return;
                 }
+                if (bIsOutward && (!aItems[i].quantity || Number.isNaN(parseFloat(aItems[i].quantity)) || parseFloat(aItems[i].quantity) < 0)) {
+                    MessageBox.error(this._getI18nText("billedQtyMandatory", null, "Billed Quantity must be zero or greater for all items"));
+                    return;
+                }
             }
 
             var oODataModel = this.getView().getModel();
-            // CR004: include plant per item in payload, challanQuantity always sent
-            var aItemPayload = aItems.map(function (item) {
+            var aItemPayload = aItems.map(function (item, iIndex) {
+                var nParsedItemNumber = parseInt((item.itemNumber != null ? String(item.itemNumber) : ""), 10);
+                var nItemNumber = Number.isFinite(nParsedItemNumber) && nParsedItemNumber > 0 ? nParsedItemNumber : (iIndex + 1);
                 return {
-                    itemNumber: item.itemNumber,
+                    itemNumber: nItemNumber,
                     materialCode: item.materialCode,
                     materialDescription: item.materialDescription,
                     quantity: item.quantity ? parseFloat(item.quantity) : 0,
-                    challanQuantity: parseFloat(item.challanQuantity) || 0,
+                    challanQuantity: bIsOutward ? null : (parseFloat(item.challanQuantity) || 0),
                     unitOfMeasure: item.unitOfMeasure,
                     orderItemNumber: item.orderItemNumber,
                     batch: item.batch || "",
                     dateOfManufacture: this._toOptionalEdmDate(item.dateOfManufacture),
-                    plant: item.plant || "",
-                    storageLocation: item.storageLocation || ""
+                    plant: bIsOutward ? (item.plant || "") : (item.plant || ""),
+                    storageLocation: bIsOutward ? (item.storageLocation || "") : (item.storageLocation || "")
                 };
             }.bind(this));
 
             var oAction = oODataModel.bindContext("/saveGatePassData(...)");
             oAction.setParameter("gateEntryID", oData.gateEntry_ID);
+            oAction.setParameter("referenceNumber", oData.referenceNumber || null);
             oAction.setParameter("vehicleNumber", oData.vehicleNumber);
             oAction.setParameter("vehicleType", oData.vehicleType);
             oAction.setParameter("transporterName", oData.transporterName);
@@ -873,7 +1061,7 @@ sap.ui.define([
                 this._clearForm();
                 this._loadOpenGateEntries();
             }.bind(this)).catch(function (oError) {
-                var sMessage = oError.message || "Error saving data";
+                var sMessage = this._extractErrorMessage(oError, "saveError", "Error saving data");
                 MessageBox.error(sMessage);
             }.bind(this));
         },
@@ -935,12 +1123,19 @@ sap.ui.define([
 
         _updatePlantColumnVisibility: function () {
             var oModel = this.getView().getModel("pass");
+            var sMovementType = (oModel.getProperty("/movementType") || "").toString().trim().toUpperCase();
             var sReferenceType = (oModel.getProperty("/referenceType") || "").toString().trim().toUpperCase();
             var sReferenceNumber = (oModel.getProperty("/referenceNumber") || "").toString().trim();
-            var bHidePlantColumn = sReferenceType === "PO" && !!sReferenceNumber;
+            var bOutward = sMovementType === "O" || sReferenceType === "SI";
+            var bShowChallanColumn = !bOutward;
+            var bShowPlantColumn = !bOutward && !(sReferenceType === "PO" && !!sReferenceNumber);
+            var bShowStorageLocationColumn = !bOutward;
+            oModel.setProperty("/showChallanColumn", bShowChallanColumn);
+            oModel.setProperty("/showPlantColumn", bShowPlantColumn);
+            oModel.setProperty("/showStorageLocationColumn", bShowStorageLocationColumn);
             var oPlantCol = this.byId("plantColumn");
             if (oPlantCol) {
-                oPlantCol.setVisible(!bHidePlantColumn);
+                oPlantCol.setVisible(bShowPlantColumn);
             }
         },
 

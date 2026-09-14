@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@sap/cds": "^9",
-    "@cap-js/hana": "^2",
     "@cap-js/sqlite": "^2",
     "@sap/xssec": "^4",
     "@sap-cloud-sdk/http-client": "^4",
@@ -36,9 +35,6 @@
           "credentials": {
             "database": "gatepass.db"
           }
-        },
-        "[production]": {
-          "kind": "hana"
         }
       },
       "purchaseorder_api": {

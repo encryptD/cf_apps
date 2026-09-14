@@ -1,0 +1,16 @@
+VIEW GatePassService_InvoiceItems AS SELECT
+  InvoiceItems_0.createdAt,
+  InvoiceItems_0.createdBy,
+  InvoiceItems_0.modifiedAt,
+  InvoiceItems_0.modifiedBy,
+  InvoiceItems_0.ID,
+  InvoiceItems_0.parent_ID,
+  InvoiceItems_0.billingDocumentItem,
+  InvoiceItems_0."PRODUCT",
+  InvoiceItems_0.itemText,
+  InvoiceItems_0.billingQuantity,
+  InvoiceItems_0.unit,
+  InvoiceItems_0.netAmount,
+  InvoiceItems_0.plant,
+  InvoiceItems_0.storageLocation
+FROM com_mdasad_gatepass_InvoiceItems AS InvoiceItems_0

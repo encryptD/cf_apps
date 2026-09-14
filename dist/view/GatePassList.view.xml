@@ -9,6 +9,8 @@
     <Page
         id="gatePassPage"
         title="{i18n>gatePassTitle}"
+        busy="{pass>/isReferenceBusy}"
+        busyIndicatorDelay="0"
         showNavButton="true"
         navButtonPress=".onNavBack">
 
@@ -35,6 +37,7 @@
                         <Button
                             id="goodsReceiptButton"
                             text="{i18n>goodsReceipt}"
+                            visible="{= ${pass>/movementType} === 'I' &amp;&amp; ${pass>/referenceType} === 'PO' }"
                             enabled="{pass>/isGoodsReceiptEnabled}"
                             busy="{pass>/isGoodsReceiptBusy}"
                             press=".onGoodsReceiptPress"/>
@@ -57,8 +60,13 @@
                         <Label text="{i18n>referenceType}"/>
                         <Text text="{parts: [{path: 'pass>/movementType'}], formatter: '.formatReferenceType'}"/>
 
-                        <Label text="{i18n>referenceNumber}"/>
-                        <Input value="{pass>/referenceNumber}" editable="false"/>
+                        <Label text="{i18n>referenceNumber}" required="{= ${pass>/movementType} === 'O' }"/>
+                        <Input
+                            value="{pass>/referenceNumber}"
+                            enabled="{= ${pass>/mode} === 'Create' }"
+                            change=".onReferenceNumberChange"
+                            placeholder="{parts: [{path: 'pass>/movementType'}], formatter: '.formatReferencePlaceholder'}"
+                            tooltip="{parts: [{path: 'pass>/movementType'}], formatter: '.formatReferenceTooltip'}"/>
 
                         <Label text="{i18n>partyName}"/>
                         <Input value="{pass>/partyName}" editable="false"/>
@@ -150,13 +158,13 @@
                                 </t:template>
                             </t:Column>
                             <t:Column width="6rem">
-                                <Label text="{i18n>orderQuantity}" required="true"/>
+                                <Label text="{parts: [{path: 'pass>/movementType'}], formatter: '.formatItemQuantityLabel'}"/>
                                 <t:template>
-                                    <Input value="{pass>quantity}" type="Number"/>
+                                    <Text text="{pass>quantity}"/>
                                 </t:template>
                             </t:Column>
-                            <t:Column width="8rem">
-                                <Label text="{i18n>challanQuantity}"/>
+                            <t:Column width="8rem" visible="{pass>/showChallanColumn}">
+                                <Label text="{i18n>challanQuantity}" required="true"/>
                                 <t:template>
                                     <Input value="{pass>challanQuantity}" type="Number" liveChange=".onChallanQuantityChange" change=".onChallanQuantityChange"/>
                                 </t:template>
@@ -165,6 +173,41 @@
                                 <Label text="{i18n>unit}"/>
                                 <t:template>
                                     <Input value="{pass>unitOfMeasure}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column id="plantColumn" width="6rem" visible="{pass>/showPlantColumn}">
+                                <Label text="{i18n>plant}"/>
+                                <t:template>
+                                    <Select
+                                        items="{path: 'pass>plantOptions', templateShareable: false}"
+                                        selectedKey="{pass>plant}"
+                                        change=".onItemPlantChange">
+                                        <core:Item key="{pass>key}" text="{pass>text}"/>
+                                    </Select>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="10rem" visible="{pass>/showStorageLocationColumn}">
+                                <Label text="{i18n>storageLocation}"/>
+                                <t:template>
+                                    <Select
+                                        enabled="{= !!${pass>storageLocationOptions}.length }"
+                                        items="{path: 'pass>storageLocationOptions', templateShareable: false}"
+                                        selectedKey="{pass>storageLocation}"
+                                        change=".onItemStorageLocationChange">
+                                        <core:Item key="{pass>key}" text="{pass>text}"/>
+                                    </Select>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="6rem">
+                                <Label text="{i18n>batch}"/>
+                                <t:template>
+                                    <Input value="{pass>batch}" change=".onItemBatchChange"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem">
+                                <Label text="{i18n>dateOfManufacture}"/>
+                                <t:template>
+                                    <DatePicker value="{pass>dateOfManufacture}" displayFormat="dd-MMM-yyyy" change=".onItemDateOfManufactureChange"/>
                                 </t:template>
                             </t:Column>
                             <t:Column width="5rem" visible="false">

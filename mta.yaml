@@ -11,11 +11,6 @@ build-parameters:
         - npm ci
         - npx cds build --production
 modules:
-  - name: gatepass-db-deployer
-    type: hdb
-    path: gen/db
-    requires:
-      - name: gatepass-db
   - name: gatepass-srv
     type: nodejs
     path: gen/srv
@@ -30,7 +25,6 @@ modules:
         properties:
           url: ${default-url}
     requires:
-      - name: gatepass-db
       - name: gatepass-uaa
       - name: gatepass-destination
 
@@ -73,11 +67,6 @@ modules:
       build-result: .
       supported-platforms: []
 resources:
-  - name: gatepass-db
-    type: com.sap.xs.hdi-container
-    parameters:
-      service: hana
-      service-plan: hdi-shared
   - name: gatepass-uaa
     type: org.cloudfoundry.managed-service
     parameters:

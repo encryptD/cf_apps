@@ -122,6 +122,9 @@
         "PassIssued": {
           "val": "PASS_ISSUED"
         },
+        "Parked": {
+          "val": "PARKED"
+        },
         "Exited": {
           "val": "EXITED"
         },
@@ -704,10 +707,304 @@
           "type": "cds.String",
           "length": 10
         },
+        "batch": {
+          "@title": "Batch",
+          "type": "cds.String",
+          "length": 40
+        },
+        "dateOfManufacture": {
+          "@title": "Date of Manufacture",
+          "type": "cds.Date"
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 10
+        },
         "orderItemNumber": {
           "@title": "Order Item Number",
           "type": "cds.String",
           "length": 10
+        }
+      }
+    },
+    "com.mdasad.gatepass.InvoiceHeaders": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "billingDocument": {
+          "@title": "Billing Document Number",
+          "type": "cds.String",
+          "length": 10
+        },
+        "billingDocumentType": {
+          "@title": "Billing Document Type",
+          "type": "cds.String",
+          "length": 4
+        },
+        "billingDocumentDate": {
+          "@title": "Billing Document Date",
+          "type": "cds.Date"
+        },
+        "soldToParty": {
+          "@title": "Sold-To Party",
+          "type": "cds.String",
+          "length": 10
+        },
+        "payerParty": {
+          "@title": "Payer Party",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 100
+        },
+        "transactionCurrency": {
+          "@title": "Transaction Currency",
+          "type": "cds.String",
+          "length": 3
+        },
+        "totalNetAmount": {
+          "@title": "Total Net Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "totalGrossAmount": {
+          "@title": "Total Gross Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "totalTaxAmount": {
+          "@title": "Total Tax Amount",
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 2
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "items": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "com.mdasad.gatepass.InvoiceItems",
+          "on": [
+            {
+              "ref": [
+                "items",
+                "parent"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "com.mdasad.gatepass.InvoiceItems": {
+      "kind": "entity",
+      "includes": [
+        "managed",
+        "cuid"
+      ],
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "parent": {
+          "@title": "Invoice Header",
+          "type": "cds.Association",
+          "target": "com.mdasad.gatepass.InvoiceHeaders",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "billingDocumentItem": {
+          "@title": "Billing Document Item",
+          "type": "cds.String",
+          "length": 6
+        },
+        "product": {
+          "@title": "Material / Product",
+          "type": "cds.String",
+          "length": 18
+        },
+        "itemText": {
+          "@title": "Item Description",
+          "type": "cds.String",
+          "length": 200
+        },
+        "billingQuantity": {
+          "@title": "Billing Quantity",
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3
+        },
+        "unit": {
+          "@title": "Unit",
+          "type": "cds.String",
+          "length": 3
+        },
+        "netAmount": {
+          "@title": "Net Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 4
+        },
+        "storageLocation": {
+          "@title": "Storage Location",
+          "type": "cds.String",
+          "length": 4
         }
       }
     },
@@ -1555,10 +1852,342 @@
           "type": "cds.String",
           "length": 10
         },
+        "batch": {
+          "@title": "Batch",
+          "type": "cds.String",
+          "length": 40
+        },
+        "dateOfManufacture": {
+          "@title": "Date of Manufacture",
+          "type": "cds.Date"
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 10
+        },
         "orderItemNumber": {
           "@title": "Order Item Number",
           "type": "cds.String",
           "length": 10
+        }
+      }
+    },
+    "GatePassService.InvoiceHeaders": {
+      "kind": "entity",
+      "@readonly": true,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.InvoiceHeaders"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "gateEntry"
+            ],
+            "cast": {
+              "target": "GatePassService.GateEntries"
+            }
+          },
+          {
+            "ref": [
+              "items"
+            ],
+            "cast": {
+              "target": "GatePassService.InvoiceItems"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "billingDocument": {
+          "@title": "Billing Document Number",
+          "type": "cds.String",
+          "length": 10
+        },
+        "billingDocumentType": {
+          "@title": "Billing Document Type",
+          "type": "cds.String",
+          "length": 4
+        },
+        "billingDocumentDate": {
+          "@title": "Billing Document Date",
+          "type": "cds.Date"
+        },
+        "soldToParty": {
+          "@title": "Sold-To Party",
+          "type": "cds.String",
+          "length": 10
+        },
+        "payerParty": {
+          "@title": "Payer Party",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyNumber": {
+          "@title": "Party Number",
+          "type": "cds.String",
+          "length": 10
+        },
+        "partyName": {
+          "@title": "Party Name",
+          "type": "cds.String",
+          "length": 100
+        },
+        "vehicleNumber": {
+          "@title": "Vehicle Number",
+          "type": "cds.String",
+          "length": 100
+        },
+        "transactionCurrency": {
+          "@title": "Transaction Currency",
+          "type": "cds.String",
+          "length": 3
+        },
+        "totalNetAmount": {
+          "@title": "Total Net Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "totalGrossAmount": {
+          "@title": "Total Gross Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "totalTaxAmount": {
+          "@title": "Total Tax Amount",
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 2
+        },
+        "gateEntry": {
+          "@title": "Gate Entry",
+          "type": "cds.Association",
+          "target": "GatePassService.GateEntries",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ]
+        },
+        "items": {
+          "type": "cds.Composition",
+          "cardinality": {
+            "max": "*"
+          },
+          "target": "GatePassService.InvoiceItems",
+          "on": [
+            {
+              "ref": [
+                "items",
+                "parent"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "$self"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "GatePassService.InvoiceItems": {
+      "kind": "entity",
+      "@readonly": true,
+      "projection": {
+        "from": {
+          "ref": [
+            "com.mdasad.gatepass.InvoiceItems"
+          ]
+        },
+        "columns": [
+          "*",
+          {
+            "ref": [
+              "parent"
+            ],
+            "cast": {
+              "target": "GatePassService.InvoiceHeaders"
+            }
+          }
+        ]
+      },
+      "elements": {
+        "createdAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "createdBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@Core.Immutable": true,
+          "@title": "{i18n>CreatedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "modifiedAt": {
+          "@cds.on.insert": {
+            "=": "$now"
+          },
+          "@cds.on.update": {
+            "=": "$now"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedAt}",
+          "@readonly": true,
+          "type": "cds.Timestamp"
+        },
+        "modifiedBy": {
+          "@cds.on.insert": {
+            "=": "$user"
+          },
+          "@cds.on.update": {
+            "=": "$user"
+          },
+          "@UI.HiddenFilter": true,
+          "@UI.ExcludeFromNavigationContext": true,
+          "@title": "{i18n>ChangedBy}",
+          "@readonly": true,
+          "@description": "{i18n>UserID.Description}",
+          "type": "User",
+          "length": 255
+        },
+        "ID": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "parent": {
+          "@title": "Invoice Header",
+          "type": "cds.Association",
+          "target": "GatePassService.InvoiceHeaders",
+          "keys": [
+            {
+              "ref": [
+                "ID"
+              ]
+            }
+          ],
+          "notNull": true
+        },
+        "billingDocumentItem": {
+          "@title": "Billing Document Item",
+          "type": "cds.String",
+          "length": 6
+        },
+        "product": {
+          "@title": "Material / Product",
+          "type": "cds.String",
+          "length": 18
+        },
+        "itemText": {
+          "@title": "Item Description",
+          "type": "cds.String",
+          "length": 200
+        },
+        "billingQuantity": {
+          "@title": "Billing Quantity",
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3
+        },
+        "unit": {
+          "@title": "Unit",
+          "type": "cds.String",
+          "length": 3
+        },
+        "netAmount": {
+          "@title": "Net Amount",
+          "type": "cds.Decimal",
+          "precision": 15,
+          "scale": 2
+        },
+        "plant": {
+          "@title": "Plant",
+          "type": "cds.String",
+          "length": 4
+        },
+        "storageLocation": {
+          "@title": "Storage Location",
+          "type": "cds.String",
+          "length": 4
         }
       }
     },
@@ -1719,6 +2348,21 @@
         },
         "gatePassID": {
           "type": "cds.UUID"
+        },
+        "exitDate": {
+          "type": "cds.Date"
+        },
+        "exitTime": {
+          "type": "cds.Time"
+        },
+        "clientTimezoneOffsetMinutes": {
+          "type": "cds.Integer"
+        },
+        "securityOfficer": {
+          "type": "cds.String"
+        },
+        "remarks": {
+          "type": "cds.String"
         }
       },
       "returns": {
@@ -1730,6 +2374,10 @@
       "params": {
         "gateEntryID": {
           "type": "cds.UUID"
+        },
+        "referenceNumber": {
+          "type": "cds.String",
+          "length": 20
         },
         "vehicleNumber": {
           "type": "cds.String"
@@ -1773,7 +2421,7 @@
         },
         "itemsJson": {
           "type": "cds.String",
-          "length": 5000
+          "length": 15000
         }
       },
       "returns": {
@@ -1796,6 +2444,9 @@
       "params": {
         "gateEntryID": {
           "type": "cds.UUID"
+        },
+        "poNumber": {
+          "type": "cds.String"
         },
         "itemsJson": {
           "type": "cds.String",
@@ -1901,6 +2552,29 @@
           },
           "customerName": {
             "type": "cds.String"
+          },
+          "vehicleNumber": {
+            "type": "cds.String"
+          },
+          "invoiceDate": {
+            "type": "cds.Date"
+          },
+          "transactionCurrency": {
+            "type": "cds.String"
+          },
+          "totalNetAmount": {
+            "type": "cds.Decimal",
+            "precision": 15,
+            "scale": 2
+          },
+          "totalGrossAmount": {
+            "type": "cds.Decimal",
+            "precision": 15,
+            "scale": 2
+          },
+          "itemsJson": {
+            "type": "cds.String",
+            "length": 15000
           }
         }
       }

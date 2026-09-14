@@ -1,0 +1,10 @@
+VIEW GatePassService_Plants AS SELECT
+  Plants_0.createdAt,
+  Plants_0.createdBy,
+  Plants_0.modifiedAt,
+  Plants_0.modifiedBy,
+  Plants_0.plantCode,
+  Plants_0.plantName,
+  Plants_0.location,
+  Plants_0.address
+FROM com_mdasad_gatepass_Plants AS Plants_0

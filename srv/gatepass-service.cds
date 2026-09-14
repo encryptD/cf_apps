@@ -28,6 +28,20 @@ service GatePassService @(path: '/gatepass') {
     gatePass : redirected to GatePasses
   };
 
+  // Outward Invoice snapshots
+  @readonly
+  entity InvoiceHeaders as projection on gp.InvoiceHeaders {
+    *,
+    gateEntry : redirected to GateEntries,
+    items     : redirected to InvoiceItems
+  };
+
+  @readonly
+  entity InvoiceItems as projection on gp.InvoiceItems {
+    *,
+    parent : redirected to InvoiceHeaders
+  };
+
   // Gate Exit — managed by Security
   @Capabilities: { Insertable: true, Updatable: false, Deletable: false }
   entity GateExit as projection on gp.GateExit {
@@ -37,9 +51,18 @@ service GatePassService @(path: '/gatepass') {
   };
 
   // Actions
-  action closeGateEntry(gateEntryID: UUID, gatePassID: UUID) returns GateEntries;
+  action closeGateEntry(
+    gateEntryID: UUID,
+    gatePassID: UUID,
+    exitDate: Date,
+    exitTime: Time,
+    clientTimezoneOffsetMinutes: Integer,
+    securityOfficer: String,
+    remarks: String
+  ) returns GateEntries;
   action saveGatePassData(
     gateEntryID: UUID,
+    referenceNumber: String(20),
     vehicleNumber: String,
     vehicleType: String,
     transporterName: String,
@@ -53,7 +76,7 @@ service GatePassService @(path: '/gatepass') {
     passDate: Date,
     passTime: Time,
     remarks: String,
-    itemsJson: String(5000)
+    itemsJson: String(15000)
   ) returns GateEntries;
   action printGatePass(gatePassID: UUID) returns String;
   action postGoodsReceipt(
@@ -88,5 +111,11 @@ service GatePassService @(path: '/gatepass') {
     plant: String;
     customerNumber: String;
     customerName: String;
+    vehicleNumber: String;
+    invoiceDate: Date;
+    transactionCurrency: String;
+    totalNetAmount: Decimal(15,2);
+    totalGrossAmount: Decimal(15,2);
+    itemsJson: String(15000);
   };
 }

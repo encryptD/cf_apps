@@ -1,0 +1,18 @@
+VIEW GatePassService_GatePassItems AS SELECT
+  GatePassItems_0.createdAt,
+  GatePassItems_0.createdBy,
+  GatePassItems_0.modifiedAt,
+  GatePassItems_0.modifiedBy,
+  GatePassItems_0.ID,
+  GatePassItems_0.gatePass_ID,
+  GatePassItems_0.itemNumber,
+  GatePassItems_0.materialCode,
+  GatePassItems_0.materialDescription,
+  GatePassItems_0.quantity,
+  GatePassItems_0.challanQuantity,
+  GatePassItems_0.unitOfMeasure,
+  GatePassItems_0.batch,
+  GatePassItems_0.dateOfManufacture,
+  GatePassItems_0.plant,
+  GatePassItems_0.orderItemNumber
+FROM com_mdasad_gatepass_GatePassItems AS GatePassItems_0
