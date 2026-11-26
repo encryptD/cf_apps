@@ -27,6 +27,7 @@ type DocumentStatus : String enum {
 type EntryStatus : String enum {
   Created     = 'CREATED';
   PassIssued  = 'PASS_ISSUED';
+  Parked      = 'PARKED';
   Exited      = 'EXITED';
   Cancelled   = 'CANCELLED';
 };
@@ -146,10 +147,49 @@ entity GatePassItems : managed, cuid {
   quantity             : Decimal(15,3) not null @title: 'Quantity';
   challanQuantity      : Decimal(15,3) @title: 'Challan Quantity';
   unitOfMeasure        : String(10) @title: 'Unit of Measure';
+  batch                : String(40) @title: 'Batch';
+  dateOfManufacture    : Date @title: 'Date of Manufacture';
+
+  // Plant per line item (without-PO scenarios)
+  plant                : String(10) @title: 'Plant';
 
   // Reference to PO/Invoice item
   orderItemNumber      : String(10) @title: 'Order Item Number';
-};
+}
+/**
+ * Outward Invoice Snapshot — Billing Document Header
+ */
+entity InvoiceHeaders : managed, cuid {
+  billingDocument       : String(10) @title: 'Billing Document Number';
+  billingDocumentType   : String(4) @title: 'Billing Document Type';
+  billingDocumentDate   : Date @title: 'Billing Document Date';
+  soldToParty           : String(10) @title: 'Sold-To Party';
+  payerParty            : String(10) @title: 'Payer Party';
+  partyNumber           : String(10) @title: 'Party Number';
+  partyName             : String(100) @title: 'Party Name';
+  vehicleNumber         : String(100) @title: 'Vehicle Number';
+  transactionCurrency   : String(3) @title: 'Transaction Currency';
+  totalNetAmount        : Decimal(15,2) @title: 'Total Net Amount';
+  totalGrossAmount      : Decimal(15,2) @title: 'Total Gross Amount';
+  totalTaxAmount        : Decimal(13,2) @title: 'Total Tax Amount';
+  gateEntry             : Association to GateEntries @title: 'Gate Entry';
+  items                 : Composition of many InvoiceItems on items.parent = $self;
+}
+
+/**
+ * Outward Invoice Snapshot — Billing Document Items
+ */
+entity InvoiceItems : managed, cuid {
+  parent                : Association to InvoiceHeaders not null @title: 'Invoice Header';
+  billingDocumentItem   : String(6) @title: 'Billing Document Item';
+  product               : String(18) @title: 'Material / Product';
+  itemText              : String(200) @title: 'Item Description';
+  billingQuantity       : Decimal(13,3) @title: 'Billing Quantity';
+  unit                  : String(3) @title: 'Unit';
+  netAmount             : Decimal(15,2) @title: 'Net Amount';
+  plant                 : String(4) @title: 'Plant';
+  storageLocation       : String(4) @title: 'Storage Location';
+}
 
 /**
  * Gate Exit — closure record created by Security at exit

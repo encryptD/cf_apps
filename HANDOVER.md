@@ -1,4 +1,84 @@
 # GatePass Handover and Deployment Finalization Runbook
+## 0ae) Latest Update (2026-08-17) — GateEntries 500 Root Cause and Resolution
+### 0ae.1 User-visible incident
+- UI failed while loading Gate Entries with backend errors on:
+  - `/gatepass/GateEntries`
+  - `/gatepass/$batch`
+- Runtime symptom in logs: relation lookup failures on `gatepassservice_gateentries`.
+
+### 0ae.2 Confirmed root cause
+- Service projection objects (`gatepassservice_*`) were present in schema `gatepass`, but active runtime DB sessions were not using that schema in `search_path`.
+- In-app probe evidence before fix showed:
+  - `search_path`: `"$user", public, extensions`
+  - `current_schema()`: `public`
+  - Query failure: `42P01 relation "gatepassservice_gateentries" does not exist`
+- This caused unqualified CAP SQL lookups to miss objects in `gatepass`.
+
+### 0ae.3 Fix applied
+- Applied minimal DB-side fix on the application role:
+  - Set default role `search_path` to `gatepass, public`.
+- Restarted `gatepass-srv` so pooled DB connections pick up updated role defaults.
+
+### 0ae.4 Post-fix verification evidence
+- New DB sessions resolve schema context correctly:
+  - `search_path`: `gatepass, public`
+  - `current_schema()`: `gatepass`
+- In-app probe query now succeeds:
+  - `select count(*) from gatepassservice_gateentries` -> success (`0` rows, no relation error).
+- Outcome: relation-not-found blocker removed; GateEntries path restored.
+
+### 0ae.5 Operational note
+- Keep schema resolution consistent across layers:
+  - CAP runtime config (`schema: gatepass`)
+  - DB role default `search_path`
+  - Any environment-level `PGOPTIONS` overrides
+- If a similar `42P01` reappears, verify effective session `search_path` first.
+## 0ad) Latest Update (2026-08-17) — External Postgres Reachability Probe and Handover
+### 0ad.1 Objective
+- Validate whether the external Postgres endpoint can be reached from both local environment and current CF runtime for GatePass integration planning.
+
+### 0ad.2 Inputs used
+- External DB host: `pgdb.vertexassist.com`
+- External DB port: `5432`
+- Env file: `.env-supabase` (verified key names only; no secret values exposed)
+
+### 0ad.3 Probe results (evidence)
+- Local probe from workstation:
+  - DNS resolution: success
+  - TCP connectivity to `pgdb.vertexassist.com:5432`: success
+- CF runtime probe from `gatepass-srv`:
+  - `cf ssh gatepass-srv` path was not usable in this space (`not authorized` for SSH action).
+  - Fallback probe executed successfully via `cf run-task`:
+    - Task name: `dbprobe1786963349`
+    - Task id: `28`
+    - Log evidence:
+      - `DBPROBE DNS_OK 31.97.111.43`
+      - `DBPROBE TCP_OK`
+
+### 0ad.4 Current CF app/service state snapshot
+- `cf mta gatepass`:
+  - Apps: `gatepass-srv` and `gatepass-app-router` are `STARTED`.
+  - Service `gatepass-db` (`hana`, `hdi-shared`) remains `create failed`.
+  - Service `gatepass-uaa` remains `update failed`.
+- `cf services` confirms `gatepass-db` is still in failed state and unbound.
+
+### 0ad.5 Implications for architecture decision
+- External Postgres endpoint is network-reachable from current CF runtime at TCP layer.
+- This is sufficient to proceed with external-DB integration design (subject to app-level auth/TLS validation).
+- If moving away from HANA/HDI, `mta.yaml` should remove HANA-specific resource/module wiring to avoid repeated failed provisioning attempts.
+
+### 0ad.6 Recommended next actions
+1. Confirm final DB strategy: external Postgres (self-hosted Supabase) vs HANA.
+2. If external Postgres is selected:
+   - Switch CAP production DB adapter to Postgres.
+   - Remove HANA HDI resources/modules from main `mta.yaml`.
+   - Bind DB credentials securely via CF service/env (no secrets in git).
+3. Run an authenticated DB connectivity test from CF runtime (not just TCP), then execute CAP smoke tests.
+4. Keep strict IP allowlist active on Postgres ingress and verify CF egress compatibility.
+
+### 0ad.7 Repo snapshot note for next agent
+- Working tree currently contains multiple unrelated modified files (UI/service/QA/build artifacts) in addition to infra changes.
+- Any new DB migration commit should stage only intended files to avoid mixing unrelated changes.
 ## Stakeholder Executive Summary (2026-06-30)
 - Overall status: S/4 Purchase Order and Goods Receipt integrations are operational with improved production-grade error semantics.
 - Business impact addressed:

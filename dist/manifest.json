@@ -50,7 +50,9 @@
 				"sap.ui.core": {},
 				"sap.m": {},
 				"sap.ui.layout": {},
-				"sap.ui.table": {}
+				"sap.ui.table": {},
+				"sap.ui.comp": {},
+				"sap.ui.export": {}
 			}
 		},
 		"contentDensities": {
@@ -124,6 +126,13 @@
 					"target": [
 						"GateExit"
 					]
+				},
+				{
+					"name": "GatePassReport",
+					"pattern": "gate-report",
+					"target": [
+						"GatePassReport"
+					]
 				}
 			],
 			"targets": {
@@ -154,6 +163,13 @@
 					"clearControlAggregation": false,
 					"viewId": "GateExit",
 					"viewName": "GateExit"
+				},
+				"GatePassReport": {
+					"viewType": "XML",
+					"transition": "slide",
+					"clearControlAggregation": false,
+					"viewId": "GatePassReport",
+					"viewName": "GatePassReport"
 				}
 			}
 		},

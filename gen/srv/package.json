@@ -46,6 +46,12 @@
         "credentials": {
           "destination": "MY410644"
         }
+      },
+      "billingdocument_api": {
+        "kind": "odata-v4",
+        "credentials": {
+          "destination": "MY410644"
+        }
       }
     }
   }

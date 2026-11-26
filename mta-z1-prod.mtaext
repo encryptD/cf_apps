@@ -1,0 +1,8 @@
+_schema-version: "3.3.0"
+ID: gatepass.z1.prod
+extends: gatepass
+
+modules:
+  - name: gatepass-srv
+    properties:
+      S4_DESTINATION: MY410651_P

@@ -12,6 +12,19 @@ sap.ui.define([
             return new Date();
         },
 
+        _ensureExitDateTimeEditable: function () {
+            var oDatePicker = this.byId("exitDatePicker");
+            if (oDatePicker) {
+                oDatePicker.setEnabled(true);
+                oDatePicker.setEditable(true);
+            }
+            var oTimePicker = this.byId("exitTimePicker");
+            if (oTimePicker) {
+                oTimePicker.setEnabled(true);
+                oTimePicker.setEditable(true);
+            }
+        },
+
         _fromEdmDate: function (vValue) {
             if (!vValue) {
                 return null;
@@ -23,6 +36,64 @@ sap.ui.define([
                 var oDate = new Date(vValue);
                 if (!Number.isNaN(oDate.getTime())) {
                     return oDate;
+                }
+            }
+            return null;
+        },
+
+        _toEdmDate: function (vValue) {
+            if (!vValue) {
+                return null;
+            }
+            if (vValue instanceof Date && !Number.isNaN(vValue.getTime())) {
+                return [
+                    String(vValue.getFullYear()),
+                    String(vValue.getMonth() + 1).padStart(2, "0"),
+                    String(vValue.getDate()).padStart(2, "0")
+                ].join("-");
+            }
+            if (typeof vValue === "string") {
+                var sDate = vValue.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(sDate)) {
+                    return sDate;
+                }
+                var oDate = new Date(sDate);
+                if (!Number.isNaN(oDate.getTime())) {
+                    return [
+                        String(oDate.getFullYear()),
+                        String(oDate.getMonth() + 1).padStart(2, "0"),
+                        String(oDate.getDate()).padStart(2, "0")
+                    ].join("-");
+                }
+            }
+            return null;
+        },
+
+        _toEdmTime: function (vValue) {
+            if (!vValue) {
+                return null;
+            }
+            if (vValue instanceof Date && !Number.isNaN(vValue.getTime())) {
+                return [
+                    String(vValue.getHours()).padStart(2, "0"),
+                    String(vValue.getMinutes()).padStart(2, "0"),
+                    String(vValue.getSeconds()).padStart(2, "0")
+                ].join(":");
+            }
+            if (typeof vValue === "string") {
+                var sTime = vValue.trim();
+                var aMatch = sTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (aMatch) {
+                    var iHours = parseInt(aMatch[1], 10);
+                    var iMinutes = parseInt(aMatch[2], 10);
+                    var iSeconds = parseInt(aMatch[3] || "0", 10);
+                    if (iHours >= 0 && iHours < 24 && iMinutes >= 0 && iMinutes < 60 && iSeconds >= 0 && iSeconds < 60) {
+                        return [
+                            String(iHours).padStart(2, "0"),
+                            String(iMinutes).padStart(2, "0"),
+                            String(iSeconds).padStart(2, "0")
+                        ].join(":");
+                    }
                 }
             }
             return null;
@@ -74,7 +145,11 @@ sap.ui.define([
                     quantity: vQuantity,
                     challanQuantity: oRow.challanQuantity != null ? oRow.challanQuantity : (oRow.challan_qty != null ? oRow.challan_qty : ""),
                     unitOfMeasure: oRow.unitOfMeasure || oRow.unit || oRow.uom || "",
-                    orderItemNumber: oRow.orderItemNumber || oRow.order_item || ""
+                    orderItemNumber: oRow.orderItemNumber || oRow.order_item || "",
+                    plant: oRow.plant || "",
+                    storageLocation: oRow.storageLocation || "",
+                    batch: oRow.batch || "",
+                    dateOfManufacture: oRow.dateOfManufacture != null ? String(oRow.dateOfManufacture) : ""
                 };
             });
         },
@@ -121,6 +196,7 @@ sap.ui.define([
         _onRouteMatched: function () {
             this._clearForm();
             this._loadPassIssuedEntries();
+            this._ensureExitDateTimeEditable();
         },
 
         _clearForm: function () {
@@ -167,7 +243,7 @@ sap.ui.define([
                 oODataModel.refresh();
             }
             var oListBinding = oODataModel.bindList("/GateEntries", null, null, null, {
-                $filter: "entryStatus eq 'CREATED'"
+            $filter: "(entryStatus eq 'CREATED' or entryStatus eq 'PASS_ISSUED' or entryStatus eq 'PARKED') and documentStatus ne 'CLOSED'"
             });
             oListBinding.requestContexts(0, 500).then(function (aContexts) {
                 var aPassIssuedEntries = aContexts.map(function (oContext) {
@@ -257,7 +333,7 @@ sap.ui.define([
                         return;
                     }
                     MessageToast.show("Could not load Gate Passes");
-                });
+                }.bind(this));
             }.bind(this);
             if (typeof oODataModel.refresh === "function") {
                 oODataModel.refresh();
@@ -292,6 +368,7 @@ sap.ui.define([
 
             oModel.setProperty("/gateEntry_ID", sSelectedKey);
             oModel.setProperty("/gateEntryNumber", sGateEntryNumber);
+            this._ensureExitDateTimeEditable();
             if (oSelectedEntry) {
                 this._applyGateEntrySnapshot(oSelectedEntry);
             }
@@ -391,6 +468,23 @@ sap.ui.define([
             if (oData.gatePass_ID) {
                 oAction.setParameter("gatePassID", oData.gatePass_ID);
             }
+            var sExitDate = this._toEdmDate(oData.exitDate);
+            var sExitTime = this._toEdmTime(oData.exitTime);
+            if (!sExitDate || !sExitTime) {
+                MessageBox.error("Exit Date/Time is invalid");
+                return;
+            }
+            oAction.setParameter("exitDate", sExitDate);
+            oAction.setParameter("exitTime", sExitTime);
+            oAction.setParameter("clientTimezoneOffsetMinutes", new Date().getTimezoneOffset());
+            var sSecurityOfficer = (oData.securityOfficer || "").toString().trim();
+            if (sSecurityOfficer) {
+                oAction.setParameter("securityOfficer", sSecurityOfficer);
+            }
+            var sRemarks = (oData.remarks || "").toString().trim();
+            if (sRemarks) {
+                oAction.setParameter("remarks", sRemarks);
+            }
             oAction.execute().then(function () {
                 var oResponse = oAction.getBoundContext().getObject();
                 MessageBox.success("Gate Entry closed successfully: " + (oResponse && oResponse.gateEntryNumber));
@@ -404,7 +498,12 @@ sap.ui.define([
 
         onCancelPress: function () {
             this._clearForm();
+            this._ensureExitDateTimeEditable();
             MessageToast.show("Form cleared");
+        },
+
+        onAfterRendering: function () {
+            this._ensureExitDateTimeEditable();
         },
 
         onNavBack: function () {

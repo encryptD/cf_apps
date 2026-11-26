@@ -96,13 +96,15 @@
                         <Label text="{i18n>referenceType}" required="true"/>
                         <Text text="{parts: [{path: 'entry>/movementType'}], formatter: '.formatReferenceType'}"/>
 
-                        <Label text="{i18n>referenceNumber}"/>
+                        <Label text="{i18n>referenceNumber}" required="{= ${entry>/movementType} === 'O' }"/>
                         <Input
                             id="poNoInput"
                             value="{entry>/poNo}"
                             editable="{entry>/isFormEditable}"
                             submit=".onPONoSubmit"
-                            placeholder="{i18n>enterPONumber}"/>
+                            change=".onPONoChange"
+                            placeholder="{parts: [{path: 'entry>/movementType'}], formatter: '.formatPlaceholder'}"
+                            tooltip="{parts: [{path: 'entry>/movementType'}], formatter: '.formatReferenceTooltip'}"/>
 
                         <Label text="{i18n>plant}"/>
                         <Input
