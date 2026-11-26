@@ -1,0 +1,182 @@
+<mvc:View
+    controllerName="com.mdasad.gatepass.controller.GatePassReport"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:t="sap.ui.table"
+    xmlns:fb="sap.ui.comp.filterbar">
+
+    <Page
+        id="gatePassReportPage"
+        title="{i18n>gatePassReportTitle}"
+        busy="{report>/isLoading}"
+        busyIndicatorDelay="0"
+        showNavButton="true"
+        navButtonPress=".onNavBack">
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <!-- Fiori-Elements-style filter bar -->
+                <fb:FilterBar
+                    id="reportFilterBar"
+                    useToolbar="false"
+                    showGoButton="true"
+                    showRestoreButton="true"
+                    search=".onSearch"
+                    reset=".onClearFilters">
+                    <fb:filterGroupItems>
+                        <fb:FilterGroupItem groupName="__$INTERNAL$" name="gateEntry" label="{i18n>gateEntryNumber}" visibleInFilterBar="true">
+                            <fb:control>
+                                <Input id="filterGateEntry" value="{report>/filterGateEntry}"/>
+                            </fb:control>
+                        </fb:FilterGroupItem>
+                        <fb:FilterGroupItem groupName="__$INTERNAL$" name="reference" label="{i18n>repFilterReferenceNo}" visibleInFilterBar="true">
+                            <fb:control>
+                                <Input id="filterReference" value="{report>/filterReference}"/>
+                            </fb:control>
+                        </fb:FilterGroupItem>
+                        <fb:FilterGroupItem groupName="__$INTERNAL$" name="vendor" label="{i18n>repFilterVendor}" visibleInFilterBar="true">
+                            <fb:control>
+                                <Input id="filterVendor" value="{report>/filterVendor}"/>
+                            </fb:control>
+                        </fb:FilterGroupItem>
+                        <fb:FilterGroupItem groupName="__$INTERNAL$" name="plant" label="{i18n>plant}" visibleInFilterBar="true">
+                            <fb:control>
+                                <Input id="filterPlant" value="{report>/filterPlant}"/>
+                            </fb:control>
+                        </fb:FilterGroupItem>
+                        <fb:FilterGroupItem groupName="__$INTERNAL$" name="entryDate" label="{i18n>entryDate}" visibleInFilterBar="true">
+                            <fb:control>
+                                <DateRangeSelection id="entryDateRange" value="{report>/entryDateRange}" displayFormat="dd-MMM-yyyy"/>
+                            </fb:control>
+                        </fb:FilterGroupItem>
+                    </fb:filterGroupItems>
+                </fb:FilterBar>
+
+                <Toolbar class="sapUiSmallMarginTop">
+                    <Title text="{i18n>gatePassReportSubtitle}" level="H5"/>
+                    <ToolbarSpacer/>
+                    <Button text="{i18n>exportToExcel}" icon="sap-icon://excel-attachment" press=".onExport"/>
+                </Toolbar>
+
+                <t:Table
+                    id="reportTable"
+                    rows="{report>/rows}"
+                    visibleRowCount="15"
+                    selectionMode="None"
+                    enableColumnReordering="false">
+                    <t:columns>
+                        <t:Column width="9rem" sortProperty="gateEntryNumber">
+                            <Label text="{i18n>gateEntryNumber}"/>
+                            <t:template><Text text="{report>gateEntryNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem" sortProperty="entryDate">
+                            <Label text="{i18n>entryDate}"/>
+                            <t:template><Text text="{report>entryDate}"/></t:template>
+                        </t:Column>
+                        <t:Column width="8rem" sortProperty="purchasingDocNo">
+                            <Label text="{i18n>repPurchasingDocNo}"/>
+                            <t:template><Text text="{report>purchasingDocNo}"/></t:template>
+                        </t:Column>
+                        <t:Column width="4.5rem" sortProperty="poItem">
+                            <Label text="{i18n>repPOItem}"/>
+                            <t:template><Text text="{report>poItem}"/></t:template>
+                        </t:Column>
+                        <t:Column width="4rem" sortProperty="plant">
+                            <Label text="{i18n>plant}"/>
+                            <t:template><Text text="{report>plant}"/></t:template>
+                        </t:Column>
+                        <t:Column width="9rem" sortProperty="materialNumber">
+                            <Label text="{i18n>repMaterialNumber}"/>
+                            <t:template><Text text="{report>materialNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="12rem" sortProperty="materialDescription">
+                            <Label text="{i18n>repMaterialDescription}"/>
+                            <t:template><Text text="{report>materialDescription}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem" sortProperty="poQuantity" hAlign="End">
+                            <Label text="{i18n>repPOQuantity}"/>
+                            <t:template><Text text="{report>poQuantity}"/></t:template>
+                        </t:Column>
+                        <t:Column width="4rem">
+                            <Label text="{i18n>repPOUnit}"/>
+                            <t:template><Text text="{report>poUnit}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem" sortProperty="vendorCode">
+                            <Label text="{i18n>repVendorCode}"/>
+                            <t:template><Text text="{report>vendorCode}"/></t:template>
+                        </t:Column>
+                        <t:Column width="10rem" sortProperty="vendorName">
+                            <Label text="{i18n>repVendorName}"/>
+                            <t:template><Text text="{report>vendorName}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem" sortProperty="invoiceNumber">
+                            <Label text="{i18n>repInvoiceNo}"/>
+                            <t:template><Text text="{report>invoiceNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem" sortProperty="invoiceDate">
+                            <Label text="{i18n>repInvoiceDate}"/>
+                            <t:template><Text text="{report>invoiceDate}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem" sortProperty="vehicleNumber">
+                            <Label text="{i18n>vehicleNumber}"/>
+                            <t:template><Text text="{report>vehicleNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem">
+                            <Label text="{i18n>vehicleType}"/>
+                            <t:template><Text text="{report>vehicleType}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem">
+                            <Label text="{i18n>repTransportNo}"/>
+                            <t:template><Text text="{report>transportNo}"/></t:template>
+                        </t:Column>
+                        <t:Column width="9rem">
+                            <Label text="{i18n>repTransportName}"/>
+                            <t:template><Text text="{report>transportName}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem">
+                            <Label text="{i18n>repLRNumber}"/>
+                            <t:template><Text text="{report>lrNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem" sortProperty="challanQty" hAlign="End">
+                            <Label text="{i18n>repChallanQty}"/>
+                            <t:template><Text text="{report>challanQty}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem" sortProperty="balanceQty" hAlign="End">
+                            <Label text="{i18n>repBalanceQty}"/>
+                            <t:template><Text text="{report>balanceQty}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem" sortProperty="grnNumber">
+                            <Label text="{i18n>repGRNNo}"/>
+                            <t:template><Text text="{report>grnNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="5rem">
+                            <Label text="{i18n>repGRNYear}"/>
+                            <t:template><Text text="{report>grnYear}"/></t:template>
+                        </t:Column>
+                        <t:Column width="8rem" sortProperty="grnPostingDate">
+                            <Label text="{i18n>repGRNPostingDate}"/>
+                            <t:template><Text text="{report>grnPostingDate}"/></t:template>
+                        </t:Column>
+                        <t:Column width="7rem">
+                            <Label text="{i18n>repGRNStorageLoc}"/>
+                            <t:template><Text text="{report>grnStorageLocation}"/></t:template>
+                        </t:Column>
+                        <t:Column width="6rem" sortProperty="grnQuantity" hAlign="End">
+                            <Label text="{i18n>repGRNQuantity}"/>
+                            <t:template><Text text="{report>grnQuantity}"/></t:template>
+                        </t:Column>
+                        <t:Column width="8rem" sortProperty="gateExitNumber">
+                            <Label text="{i18n>repGateEntryExit}"/>
+                            <t:template><Text text="{report>gateExitNumber}"/></t:template>
+                        </t:Column>
+                        <t:Column width="8rem" sortProperty="exitDate">
+                            <Label text="{i18n>repGateEntryExitDate}"/>
+                            <t:template><Text text="{report>exitDate}"/></t:template>
+                        </t:Column>
+                    </t:columns>
+                </t:Table>
+            </VBox>
+        </content>
+    </Page>
+</mvc:View>

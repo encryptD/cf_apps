@@ -169,6 +169,18 @@
                                     <Input value="{pass>challanQuantity}" type="Number" liveChange=".onChallanQuantityChange" change=".onChallanQuantityChange"/>
                                 </t:template>
                             </t:Column>
+                            <t:Column width="8rem" visible="{pass>/showChallanColumn}">
+                                <Label text="{i18n>localCurrencyAmount}"/>
+                                <t:template>
+                                    <Text text="{parts: [{path: 'pass>netPriceAmount'}, {path: 'pass>orderPriceUnit'}, {path: 'pass>challanQuantity'}], formatter: '.formatLocalAmount'}"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem" visible="{pass>/showChallanColumn}">
+                                <Label text="{i18n>goodsRecipient}"/>
+                                <t:template>
+                                    <Input value="{pass>goodsRecipient}"/>
+                                </t:template>
+                            </t:Column>
                             <t:Column width="4rem">
                                 <Label text="{i18n>unit}"/>
                                 <t:template>
@@ -204,10 +216,16 @@
                                     <Input value="{pass>batch}" change=".onItemBatchChange"/>
                                 </t:template>
                             </t:Column>
-                            <t:Column width="8rem">
+                            <t:Column width="8rem" visible="{= ${pass>/movementType} !== 'O' }">
                                 <Label text="{i18n>dateOfManufacture}"/>
                                 <t:template>
                                     <DatePicker value="{pass>dateOfManufacture}" displayFormat="dd-MMM-yyyy" change=".onItemDateOfManufactureChange"/>
+                                </t:template>
+                            </t:Column>
+                            <t:Column width="8rem" visible="{= ${pass>/movementType} === 'O' }">
+                                <Label text="{i18n>deliveryNo}"/>
+                                <t:template>
+                                    <Text text="{pass>deliveryNumber}"/>
                                 </t:template>
                             </t:Column>
                             <t:Column width="5rem" visible="false">

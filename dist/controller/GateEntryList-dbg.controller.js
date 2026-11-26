@@ -328,6 +328,9 @@ sap.ui.define([
                     if (oResult.vehicleNumber) {
                         oEntryModel.setProperty("/vehicleNumber", oResult.vehicleNumber);
                     }
+                    if (oResult.transporterNumber) {
+                        oEntryModel.setProperty("/transporterNumber", oResult.transporterNumber);
+                    }
                 }
             }.bind(this)).catch(function () {
                 MessageToast.show(sReferenceType === "PO" ? "Could not fetch Purchase Order details" : "Could not fetch Sales Invoice details");

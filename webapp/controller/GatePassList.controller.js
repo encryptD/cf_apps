@@ -154,6 +154,7 @@ sap.ui.define([
                     aSelectedItems.push({
                         orderItemNumber: oItem.orderItemNumber,
                         challanQuantity: oItem.challanQuantity,
+                        goodsRecipient: oItem.goodsRecipient || "",
                         storageLocation: oItem.storageLocation || "",
                         plant: oItem.plant || "",
                         batch: oItem.batch || "",
@@ -174,9 +175,19 @@ sap.ui.define([
             var sReferenceType = oModel.getProperty("/referenceType");
             var sMovementType = oModel.getProperty("/movementType");
             var mOpenByItem = this._mGROpenItemsByOrderItem || {};
+            var aPORows = (this._mPOItemsByNumber || {})[oModel.getProperty("/referenceNumber")] || [];
             var aUpdated = aItems.map(function (oItem) {
                 var sItemNo = this._normalizeOrderItemNumber(oItem.orderItemNumber);
+                var oPORow = null;
+                if (sItemNo) {
+                    oPORow = aPORows.find(function (oRow) {
+                        return this._normalizeOrderItemNumber(oRow.item_no) === sItemNo;
+                    }.bind(this)) || null;
+                }
+                var bNeedsPrice = oItem.netPriceAmount === undefined || oItem.netPriceAmount === null || oItem.netPriceAmount === "";
                 return Object.assign({}, oItem, {
+                    netPriceAmount: bNeedsPrice && oPORow && oPORow.net_price_amount !== undefined && oPORow.net_price_amount !== null ? oPORow.net_price_amount : (oItem.netPriceAmount !== undefined ? oItem.netPriceAmount : ""),
+                    orderPriceUnit: bNeedsPrice && oPORow && oPORow.order_price_unit !== undefined && oPORow.order_price_unit !== null ? oPORow.order_price_unit : (oItem.orderPriceUnit !== undefined ? oItem.orderPriceUnit : ""),
                     grSelectable: sMovementType === "I" && sReferenceType === "PO" && !!mOpenByItem[sItemNo]
                 });
             }.bind(this));
@@ -431,6 +442,7 @@ x        },
                 var aOutwardItems = aInvoiceItems.map(function (oItem, iIndex) {
                     return {
                         itemNumber: iIndex + 1,
+                        deliveryNumber: oItem.deliveryNumber || "",
                         materialCode: oItem.materialCode || "",
                         materialDescription: oItem.materialDescription || "",
                         quantity: oItem.quantity !== undefined && oItem.quantity !== null ? String(oItem.quantity) : "",
@@ -479,6 +491,9 @@ x        },
                     materialDescription: oRow.material_description || "",
                     quantity: oRow.po_qty !== undefined && oRow.po_qty !== null ? String(oRow.po_qty) : "",
                     challanQuantity: "",
+                    goodsRecipient: "",
+                    netPriceAmount: oRow.net_price_amount !== undefined && oRow.net_price_amount !== null ? oRow.net_price_amount : "",
+                    orderPriceUnit: oRow.order_price_unit !== undefined && oRow.order_price_unit !== null ? oRow.order_price_unit : "",
                     unitOfMeasure: this._resolvePOUnitOfMeasure(oRow),
                     orderItemNumber: oRow.item_no !== undefined && oRow.item_no !== null ? String(oRow.item_no) : "",
                     plant: sItemPlant,
@@ -830,6 +845,19 @@ x        },
             return sMovementType === "O" ? this._getI18nText("billedQuantity", null, "Billed Qty") : this._getI18nText("orderQuantity", null, "Order Quantity");
         },
 
+        formatLocalAmount: function (vNetPrice, vPriceUnit, vChallanQty) {
+            var nPrice = parseFloat(vNetPrice);
+            var nQty = parseFloat(vChallanQty);
+            if (!Number.isFinite(nPrice) || nPrice === 0 || !Number.isFinite(nQty) || nQty <= 0) {
+                return "";
+            }
+            var nUnit = parseFloat(vPriceUnit);
+            if (!Number.isFinite(nUnit) || nUnit <= 0) {
+                nUnit = 1;
+            }
+            return (Math.round((nQty * nPrice / nUnit) * 100) / 100).toFixed(2);
+        },
+
         onAddItem: function () {
             var oModel = this.getView().getModel("pass");
             var aItems = oModel.getProperty("/items") || [];
@@ -837,10 +865,14 @@ x        },
             var aPlantKeys = this._getAvailablePlantKeys();
             aItems.push({
                 itemNumber: aItems.length + 1,
+                deliveryNumber: "",
+                netPriceAmount: "",
+                orderPriceUnit: "",
                 materialCode: "",
                 materialDescription: "",
                 quantity: "",
                 challanQuantity: "",
+                goodsRecipient: "",
                 unitOfMeasure: "",
                 orderItemNumber: "",
                 batch: "",
@@ -904,6 +936,7 @@ x        },
                 return {
                     orderItemNumber: oItem.orderItemNumber,
                     challanQuantity: Number(oItem.challanQuantity),
+                    goodsRecipient: oItem.goodsRecipient || null,
                     storageLocation: oItem.storageLocation || null,
                     plant: oItem.plant || null,
                     batch: oItem.batch || null,
@@ -1024,10 +1057,12 @@ x        },
                 var nItemNumber = Number.isFinite(nParsedItemNumber) && nParsedItemNumber > 0 ? nParsedItemNumber : (iIndex + 1);
                 return {
                     itemNumber: nItemNumber,
+                    deliveryNumber: item.deliveryNumber || "",
                     materialCode: item.materialCode,
                     materialDescription: item.materialDescription,
                     quantity: item.quantity ? parseFloat(item.quantity) : 0,
                     challanQuantity: bIsOutward ? null : (parseFloat(item.challanQuantity) || 0),
+                    goodsRecipient: item.goodsRecipient || "",
                     unitOfMeasure: item.unitOfMeasure,
                     orderItemNumber: item.orderItemNumber,
                     batch: item.batch || "",

@@ -57,6 +57,7 @@
         <FunctionImport Name="getPurchaseOrderSnapshot" Function="GatePassService.getPurchaseOrderSnapshot"/>
         <FunctionImport Name="getGoodsReceiptOpenItems" Function="GatePassService.getGoodsReceiptOpenItems"/>
         <FunctionImport Name="getSalesInvoiceDetails" Function="GatePassService.getSalesInvoiceDetails"/>
+        <FunctionImport Name="getGatePassReport" Function="GatePassService.getGatePassReport"/>
       </EntityContainer>
       <EntityType Name="Plants">
         <Key>
@@ -278,11 +279,15 @@
         <Property Name="customerNumber" Type="Edm.String"/>
         <Property Name="customerName" Type="Edm.String"/>
         <Property Name="vehicleNumber" Type="Edm.String"/>
+        <Property Name="transporterNumber" Type="Edm.String"/>
         <Property Name="invoiceDate" Type="Edm.Date"/>
         <Property Name="transactionCurrency" Type="Edm.String"/>
         <Property Name="totalNetAmount" Type="Edm.Decimal" Precision="15" Scale="2"/>
         <Property Name="totalGrossAmount" Type="Edm.Decimal" Precision="15" Scale="2"/>
         <Property Name="itemsJson" Type="Edm.String" MaxLength="15000"/>
+      </ComplexType>
+      <ComplexType Name="return_GatePassService_getGatePassReport">
+        <Property Name="rowsJson" Type="Edm.String"/>
       </ComplexType>
       <Action Name="closeGateEntry" IsBound="false">
         <Parameter Name="gateEntryID" Type="Edm.Guid"/>
@@ -338,6 +343,9 @@
       <Function Name="getSalesInvoiceDetails" IsBound="false" IsComposable="false">
         <Parameter Name="invoiceNumber" Type="Edm.String"/>
         <ReturnType Type="GatePassService.return_GatePassService_getSalesInvoiceDetails"/>
+      </Function>
+      <Function Name="getGatePassReport" IsBound="false" IsComposable="false">
+        <ReturnType Type="GatePassService.return_GatePassService_getGatePassReport"/>
       </Function>
       <Annotations Target="GatePassService.EntityContainer/Plants">
         <Annotation Term="Capabilities.DeleteRestrictions">

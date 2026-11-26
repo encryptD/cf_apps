@@ -2556,6 +2556,9 @@
           "vehicleNumber": {
             "type": "cds.String"
           },
+          "transporterNumber": {
+            "type": "cds.String"
+          },
           "invoiceDate": {
             "type": "cds.Date"
           },
@@ -2575,6 +2578,16 @@
           "itemsJson": {
             "type": "cds.String",
             "length": 15000
+          }
+        }
+      }
+    },
+    "GatePassService.getGatePassReport": {
+      "kind": "function",
+      "returns": {
+        "elements": {
+          "rowsJson": {
+            "type": "cds.LargeString"
           }
         }
       }

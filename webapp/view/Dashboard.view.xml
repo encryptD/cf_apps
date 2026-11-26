@@ -60,6 +60,19 @@
                     </TileContent>
                 </GenericTile>
 
+                <GenericTile
+                    id="tileGatePassReport"
+                    header="{i18n>gatePassReportTitle}"
+                    subheader="{i18n>gatePassReportSubtitle}"
+                    press=".onTilePress">
+                    <customData>
+                        <core:CustomData key="route" value="GatePassReport"/>
+                    </customData>
+                    <TileContent>
+                        <core:Icon src="sap-icon://table-view" size="2rem" color="Default"/>
+                    </TileContent>
+                </GenericTile>
+
             </l:Grid>
         </content>
 

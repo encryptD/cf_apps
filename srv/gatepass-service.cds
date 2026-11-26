@@ -112,10 +112,16 @@ service GatePassService @(path: '/gatepass') {
     customerNumber: String;
     customerName: String;
     vehicleNumber: String;
+    transporterNumber: String;
     invoiceDate: Date;
     transactionCurrency: String;
     totalNetAmount: Decimal(15,2);
     totalGrossAmount: Decimal(15,2);
     itemsJson: String(15000);
+  };
+
+  // Read-only operational report rows (Gate Entry + Items + Gate Exit + GRN)
+  function getGatePassReport() returns {
+    rowsJson: LargeString;
   };
 }

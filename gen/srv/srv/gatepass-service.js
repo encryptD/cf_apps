@@ -18,6 +18,26 @@ const CBO_ENTITY_SETS = Object.freeze({
   InvoiceHeaders: 'YY1_GATEPASS_INVOICEHEADER',
   Plants: 'YY1_GATEPASS_PLANTS'
 });
+// materialItemsJson lives in a CBO string field with MaxLength=500 — persist with
+// short keys and expand back to full field names on read (backward compatible).
+const MATERIAL_ITEMS_KEY_MAP = Object.freeze({
+  itemNumber: 'in',
+  deliveryNumber: 'dn',
+  materialCode: 'mc',
+  materialDescription: 'md',
+  quantity: 'q',
+  challanQuantity: 'cq',
+  goodsRecipient: 'gr',
+  unitOfMeasure: 'uom',
+  orderItemNumber: 'oi',
+  plant: 'pl',
+  storageLocation: 'sl',
+  batch: 'b',
+  dateOfManufacture: 'dom'
+});
+const MATERIAL_ITEMS_KEY_MAP_REVERSE = Object.freeze(
+  Object.fromEntries(Object.entries(MATERIAL_ITEMS_KEY_MAP).map(([sKey, sShort]) => [sShort, sKey]))
+);
 
 class GatePassService extends cds.ApplicationService {
   async init() {
@@ -42,6 +62,7 @@ class GatePassService extends cds.ApplicationService {
     this.on('getPurchaseOrderReceivedSnapshot', this._onGetPurchaseOrderReceivedSnapshot);
     this.on('getGoodsReceiptOpenItems', this._onGetGoodsReceiptOpenItems);
     this.on('getSalesInvoiceDetails', this._onGetSalesInvoiceDetails);
+    this.on('getGatePassReport', this._onGetGatePassReport);
     return super.init();
   }
 
@@ -53,7 +74,7 @@ class GatePassService extends cds.ApplicationService {
     const sFilter = `PurchaseOrder eq '${this._escapeODataString(sPONumber)}'`;
     const sPath = this._buildS4Path(
       this._getGRServiceRoot(),
-      `/A_MaterialDocumentItem?$filter=${sFilter}&$select=PurchaseOrder,PurchaseOrderItem,PostingDate,MaterialDocumentYear,GoodsMovementType,DebitCreditCode,EntryUnit,QuantityInEntryUnit&$top=5000&$format=json`
+      `/A_MaterialDocumentItem?$filter=${sFilter}&$select=PurchaseOrder,PurchaseOrderItem,MaterialDocumentYear,GoodsMovementType,DebitCreditCode,EntryUnit,QuantityInEntryUnit&$top=5000&$format=json`
     );
     const oGRService = await this._getGRService();
     const oRemoteClient = req ? oGRService.tx(req) : oGRService;
@@ -144,6 +165,10 @@ class GatePassService extends cds.ApplicationService {
 
   _extractODataV2Results(payload) {
     const oData = payload && payload.data ? payload.data : payload;
+    // CAP remote service .send() can return a bare results array
+    if (Array.isArray(oData)) {
+      return oData;
+    }
     if (!oData || typeof oData !== 'object') {
       return [];
     }
@@ -273,14 +298,14 @@ class GatePassService extends cds.ApplicationService {
       entryTime: this._fromODataV2Duration(oRow.entryTime || oRow.EntryTime),
       remarks: oRow.remarks || oRow.Remarks || null,
       invoiceDate: this._fromODataV2Date(oRow.invoiceDate || oRow.InvoiceDate),
-      invoiceValue: oRow.referenceNumber || oRow.ReferenceNumber || oRow.invoiceValue || oRow.InvoiceValue || null,
+      invoiceValue: oRow.invoiceNo || oRow.InvoiceNo || null,
       eWayBillNumber: oRow.eWayBillNumber || oRow.EWayBillNumber || null,
       eWayBillDate: this._fromODataV2Date(oRow.eWayBillDate || oRow.EWayBillDate),
       shippingAddress: oRow.shippingAddress || oRow.ShippingAddress || null,
       passDate: this._fromODataV2Date(oRow.passDate || oRow.PassDate),
       passTime: this._fromODataV2Duration(oRow.passTime || oRow.PassTime),
       passRemarks: oRow.passRemarks || oRow.PassRemarks || null,
-      materialItemsJson: oRow.materialItemsJson || oRow.MaterialItemsJson || null
+      materialItemsJson: this._expandMaterialItemsJsonString(oRow.materialItemsJson || oRow.MaterialItemsJson || null)
     };
     return oMapped;
   }
@@ -313,13 +338,14 @@ class GatePassService extends cds.ApplicationService {
       entryTime: fnHas('entryTime') ? this._toODataV2Duration(oData.entryTime) : undefined,
       remarks: oData.remarks || undefined,
       invoiceDate: fnHas('invoiceDate') ? this._toODataV2Date(oData.invoiceDate) : undefined,
+      invoiceNo: oData.invoiceValue || undefined,
       eWayBillNumber: oData.eWayBillNumber || undefined,
       eWayBillDate: fnHas('eWayBillDate') ? this._toODataV2Date(oData.eWayBillDate) : undefined,
       shippingAddress: oData.shippingAddress || undefined,
       passDate: fnHas('passDate') ? this._toODataV2Date(oData.passDate) : undefined,
       passTime: fnHas('passTime') ? this._toODataV2Duration(oData.passTime) : undefined,
       passRemarks: oData.passRemarks || undefined,
-      materialItemsJson: oData.materialItemsJson || undefined
+      materialItemsJson: this._compactMaterialItemsJsonForCBO(oData.materialItemsJson, oData.movementType)
     };
     Object.keys(oPayload).forEach((sKey) => {
       if (oPayload[sKey] === undefined || (bForPatch && sKey === 'ID')) {
@@ -666,10 +692,73 @@ class GatePassService extends cds.ApplicationService {
     }
     try {
       const parsed = JSON.parse(sItemsJson);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed) ? parsed.map((oItem) => this._expandMaterialItemKeys(oItem)) : [];
     } catch (e) {
       return [];
     }
+  }
+
+  _expandMaterialItemKeys(oItem) {
+    if (!oItem || typeof oItem !== 'object' || Array.isArray(oItem)) {
+      return oItem;
+    }
+    const oExpanded = {};
+    Object.entries(oItem).forEach(([sKey, vValue]) => {
+      oExpanded[MATERIAL_ITEMS_KEY_MAP_REVERSE[sKey] || sKey] = vValue;
+    });
+    return oExpanded;
+  }
+
+  _shortenMaterialItemKeys(oItem) {
+    const oShort = {};
+    Object.entries(oItem || {}).forEach(([sKey, vValue]) => {
+      oShort[MATERIAL_ITEMS_KEY_MAP[sKey] || sKey] = vValue;
+    });
+    return oShort;
+  }
+
+  // Expand a stored (possibly short-key) materialItemsJson string to full field names
+  _expandMaterialItemsJsonString(vItemsJson) {
+    if (!vItemsJson) {
+      return vItemsJson || null;
+    }
+    try {
+      const parsed = JSON.parse(vItemsJson);
+      if (!Array.isArray(parsed)) {
+        return vItemsJson;
+      }
+      return JSON.stringify(parsed.map((oItem) => this._expandMaterialItemKeys(oItem)));
+    } catch (e) {
+      return vItemsJson;
+    }
+  }
+
+  // Single write choke point: parse + drop empty fields + short keys for the 500-char CBO field
+  _compactMaterialItemsJsonForCBO(vItemsJson, vMovementType) {
+    if (!vItemsJson) {
+      return undefined;
+    }
+    const sMovementType = (vMovementType || '').toString().trim().toUpperCase();
+    const bIsOutward = sMovementType === 'O' || sMovementType === 'OUT';
+    return JSON.stringify(this._compactMaterialItemsForCBO(this._parseMaterialItemsJson(vItemsJson), bIsOutward));
+  }
+
+  // CBO materialItemsJson has a MaxLength facet — drop null/empty fields and,
+  // for outward items, dateOfManufacture (not relevant) to stay within the limit
+  _compactMaterialItemsForCBO(aItems, bIsOutward = false) {
+    return (Array.isArray(aItems) ? aItems : []).map((oItem) => {
+      const oCompact = {};
+      Object.entries(oItem || {}).forEach(([sKey, vValue]) => {
+        if (vValue === null || vValue === undefined || vValue === '') {
+          return;
+        }
+        oCompact[sKey] = vValue;
+      });
+      if (bIsOutward) {
+        delete oCompact.dateOfManufacture;
+      }
+      return this._shortenMaterialItemKeys(oCompact);
+    });
   }
 
   _buildVirtualGatePassFromEntry(oEntry) {
@@ -680,6 +769,7 @@ class GatePassService extends cds.ApplicationService {
       ID: randomUUID(),
       gatePass_ID: oEntry.ID,
       itemNumber: oItem.itemNumber || iIndex + 1,
+      deliveryNumber: oItem.deliveryNumber || '',
       materialCode: oItem.materialCode || '',
       materialDescription: oItem.materialDescription || '',
       quantity: this._toNumber(oItem.quantity),
@@ -700,7 +790,7 @@ class GatePassService extends cds.ApplicationService {
       referenceType: oEntry.referenceType || null,
       referenceNumber: oEntry.referenceNumber || null,
       invoiceDate: oEntry.invoiceDate || null,
-      invoiceValue: oEntry.referenceNumber || null,
+      invoiceValue: oEntry.invoiceValue || oEntry.referenceNumber || null,
       partyNumber: oEntry.partyNumber || null,
       partyName: oEntry.partyName || null,
       eWayBillNumber: oEntry.eWayBillNumber || null,
@@ -742,8 +832,8 @@ class GatePassService extends cds.ApplicationService {
         ID: iAttempt === 0 ? oBasePayload.ID : randomUUID()
       };
       if (bAutoGeneratedNumber && iAttempt > 0) {
-        const nFallbackSequence = Date.now() % 1000000;
-        oPayload.gateEntryNumber = this._buildGateEntryNumber(nFallbackSequence + iAttempt, oPayload.entryDate);
+        // Recompute the next per-year sequence so concurrently created entries are picked up
+        oPayload.gateEntryNumber = await this._getNextGateEntryNumber(oPayload.entryDate || new Date());
         oPayload._gateEntryNumberWasAutoGenerated = true;
       }
       try {
@@ -928,23 +1018,41 @@ class GatePassService extends cds.ApplicationService {
     return sDigits;
   }
 
-  _extractGateEntrySequence(vGateEntryNumber) {
-    const sValue = (vGateEntryNumber || '').toString().trim();
+  _parseGateEntryNumber(vGateEntryNumber) {
+    const sValue = (vGateEntryNumber || '').toString().trim().toUpperCase();
     if (!sValue) {
-      return 0;
+      return { year: null, sequence: 0 };
     }
-    let oMatch = sValue.match(/^GE-(\d+)(?:-\d{8})?$/i);
-    if (!oMatch) {
-      oMatch = sValue.match(/^GE-(\d+)/i);
+    // Current format: GE-YYYY-<SeqNo> — sequence restarts from 000001 each year
+    let oMatch = sValue.match(/^GE-(\d{4})-(\d+)$/);
+    if (oMatch) {
+      return {
+        year: Number.parseInt(oMatch[1], 10),
+        sequence: Number.parseInt(oMatch[2], 10) || 0
+      };
     }
-    if (!oMatch) {
-      oMatch = sValue.match(/^GE(\d+)$/i);
+    // Legacy format: GE-<SeqNo>-<YYYYMMDD> — year taken from the date suffix
+    oMatch = sValue.match(/^GE-(\d+)-(\d{4})\d{4}$/);
+    if (oMatch) {
+      return {
+        year: Number.parseInt(oMatch[2], 10),
+        sequence: Number.parseInt(oMatch[1], 10) || 0
+      };
     }
-    if (!oMatch) {
-      return 0;
+    // Legacy formats without any year: GE-<SeqNo> or GE<SeqNo>
+    oMatch = sValue.match(/^GE-?(\d+)$/);
+    if (oMatch) {
+      return { year: null, sequence: Number.parseInt(oMatch[1], 10) || 0 };
     }
-    const nValue = Number.parseInt(oMatch[1], 10);
-    return Number.isFinite(nValue) ? nValue : 0;
+    return { year: null, sequence: 0 };
+  }
+
+  _resolveGateEntryYear(vDateLike) {
+    const sNormalized = this._normalizeDate(vDateLike);
+    if (this._isNormalizedDate(sNormalized)) {
+      return Number.parseInt(sNormalized.slice(0, 4), 10);
+    }
+    return new Date().getFullYear();
   }
 
   _buildGateEntryNumber(nSequence, vDateLike) {
@@ -952,20 +1060,22 @@ class GatePassService extends cds.ApplicationService {
     const nSafeSequence = Number.isFinite(nNormalized) && nNormalized > 0
       ? nNormalized
       : 1;
-    const sDateSuffix = this._formatDateSuffix(vDateLike);
-    return `GE-${String(nSafeSequence).padStart(6, '0')}-${sDateSuffix}`;
+    const nYear = this._resolveGateEntryYear(vDateLike);
+    return `GE-${nYear}-${String(nSafeSequence).padStart(6, '0')}`;
   }
 
   async _getNextGateEntryNumber(vDateLike) {
+    const vEffectiveDate = vDateLike || new Date();
+    const nTargetYear = this._resolveGateEntryYear(vEffectiveDate);
     const aExistingRows = await this._getAllGateEntriesRaw();
-    const aExistingNumbers = (aExistingRows || []).map((oRow) => ({
-      gateEntryNumber: oRow?.GateEntryNumber || oRow?.gateEntryNumber || ''
-    }));
-    const nLastSeq = (aExistingNumbers || []).reduce((nMax, oRow) => {
-      const nSeq = this._extractGateEntrySequence(oRow?.gateEntryNumber);
-      return nSeq > nMax ? nSeq : nMax;
+    const nLastSeq = (aExistingRows || []).reduce((nMax, oRow) => {
+      const oParsed = this._parseGateEntryNumber(oRow?.GateEntryNumber || oRow?.gateEntryNumber);
+      if (oParsed.year !== nTargetYear) {
+        return nMax;
+      }
+      return oParsed.sequence > nMax ? oParsed.sequence : nMax;
     }, 0);
-    return this._buildGateEntryNumber(nLastSeq + 1, vDateLike || new Date());
+    return this._buildGateEntryNumber(nLastSeq + 1, vEffectiveDate);
   }
 
   _isValidGateEntryNumberForCBO(vGateEntryNumber) {
@@ -973,7 +1083,12 @@ class GatePassService extends cds.ApplicationService {
     if (!sValue || sValue.length > 20) {
       return false;
     }
-    return /^GE-\d{6}-\d{8}$/.test(sValue) || /^GE\d{6}$/.test(sValue);
+    // Current format: GE-YYYY-<SeqNo>
+    if (/^GE-\d{4}-\d{6}$/.test(sValue)) {
+      return true;
+    }
+    // Legacy formats remain valid so historical records are not regenerated
+    return /^GE-\d{6}-\d{8}$/.test(sValue) || /^GE-?\d{6}$/.test(sValue);
   }
 
   _isDuplicateCBOCreateError(error) {
@@ -1020,18 +1135,6 @@ class GatePassService extends cds.ApplicationService {
       );
     });
     return this._mapGateEntryFromCBO(oMatched) || null;
-  }
-
-  _formatDateSuffix(vDateLike) {
-    const sNormalized = this._normalizeDate(vDateLike || new Date());
-    if (this._isNormalizedDate(sNormalized)) {
-      return sNormalized.replace(/-/g, '');
-    }
-    const oNow = new Date();
-    const sYear = String(oNow.getFullYear());
-    const sMonth = String(oNow.getMonth() + 1).padStart(2, '0');
-    const sDay = String(oNow.getDate()).padStart(2, '0');
-    return `${sYear}${sMonth}${sDay}`;
   }
 
   _isNormalizedDate(vValue) {
@@ -1549,9 +1652,9 @@ class GatePassService extends cds.ApplicationService {
       return req.error(400, 'Entry Date is mandatory');
     }
 
-    // Set Gate Entry Year if not provided
+    // Set Gate Entry Year from Entry Date if not provided (sequence restarts every year)
     if (!data.gateEntryYear) {
-      data.gateEntryYear = new Date().getFullYear();
+      data.gateEntryYear = this._resolveGateEntryYear(data.entryDate || new Date());
     }
     data.gateEntryYear = String(data.gateEntryYear);
     if (!data.documentStatus) {
@@ -1734,7 +1837,9 @@ class GatePassService extends cds.ApplicationService {
     let sPartyName = data.partyName !== undefined
       ? ((data.partyName || '').toString().trim() || null)
       : (entry.partyName || null);
-    const sInvoiceValue = sReferenceNumber || null;
+    const sInvoiceValue = data.invoiceValue !== undefined
+      ? ((data.invoiceValue || '').toString().trim() || null)
+      : (entry.invoiceValue || null);
     if (sReferenceType === 'PO' && sReferenceNumber && (!sPlant || !sPartyNumber || !sPartyName)) {
       try {
         const oPODetails = await this._fetchPODetails(sReferenceNumber, req);
@@ -1808,7 +1913,7 @@ class GatePassService extends cds.ApplicationService {
               : null
           };
         });
-        sItemsJson = JSON.stringify(aValidatedItems);
+      sItemsJson = JSON.stringify(this._compactMaterialItemsForCBO(aValidatedItems, sMovementType === 'O'));
       } catch (e) {
         if (e && typeof e.message === 'string' && e.message.startsWith('CHALLAN_QTY_INVALID:')) {
           const sIndex = e.message.split(':')[1] || '?';
@@ -1825,8 +1930,9 @@ class GatePassService extends cds.ApplicationService {
         return req.error(400, 'Material items payload is invalid');
       }
     } else if (!sItemsJson && oSalesInvoiceSnapshot && Array.isArray(oSalesInvoiceSnapshot.items) && oSalesInvoiceSnapshot.items.length) {
-      sItemsJson = JSON.stringify(oSalesInvoiceSnapshot.items.map((oItem, iIndex) => ({
+      sItemsJson = JSON.stringify(this._compactMaterialItemsForCBO(oSalesInvoiceSnapshot.items.map((oItem, iIndex) => ({
         itemNumber: iIndex + 1,
+        deliveryNumber: (oItem.deliveryNumber || oSalesInvoiceSnapshot.deliveryNumber || '').toString(),
         materialCode: oItem.materialCode || '',
         materialDescription: oItem.materialDescription || '',
         quantity: Number(oItem.quantity || 0),
@@ -1837,7 +1943,7 @@ class GatePassService extends cds.ApplicationService {
         storageLocation: oItem.storageLocation || null,
         batch: '',
         dateOfManufacture: null
-      })));
+      })), sMovementType === 'O'));
     }
 
     // Outward entries always become CREATED after Gate Pass save.
@@ -1893,12 +1999,7 @@ class GatePassService extends cds.ApplicationService {
 
     let aSavedItems = [];
     if (sItemsJson) {
-      try {
-        const parsed = JSON.parse(sItemsJson);
-        aSavedItems = Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        aSavedItems = [];
-      }
+      aSavedItems = this._parseMaterialItemsJson(sItemsJson);
     }
     try {
       await this._replaceGatePassItemsForGatePass(entry.ID, aSavedItems);
@@ -2119,6 +2220,7 @@ class GatePassService extends cds.ApplicationService {
       passTime: pass.passTime,
       remarks: pass.remarks,
       items: items.map(item => ({
+        deliveryNumber: item.deliveryNumber || '',
         materialCode: item.materialCode,
         materialDescription: item.materialDescription,
         quantity: item.quantity,
@@ -2280,12 +2382,7 @@ class GatePassService extends cds.ApplicationService {
     }
     let aSavedItems = [];
     if (oEntry.materialItemsJson) {
-      try {
-        const parsedItems = JSON.parse(oEntry.materialItemsJson);
-        aSavedItems = Array.isArray(parsedItems) ? parsedItems : [];
-      } catch (e) {
-        return req.error(400, 'Saved material item data is invalid for Goods Receipt posting');
-      }
+      aSavedItems = this._parseMaterialItemsJson(oEntry.materialItemsJson);
     }
     const mSavedItemsByOrderItem = {};
     aSavedItems.forEach((oSavedItem) => {
@@ -2319,6 +2416,8 @@ class GatePassService extends cds.ApplicationService {
     const oPostingDate = new Date();
     const sPostingDate = this._toODataV2DateTime(oPostingDate);
     const sDefaultStorageLocation = this._getDefaultGRStorageLocation();
+    // Gate Entry No goes into each material-document item as YY1_GatePassNo_MMI
+    const sGateEntryNumber = (oEntry.gateEntryNumber || '').toString().trim();
     const aMaterialDocItems = [];
     for (const oItem of aSelectedItems) {
       const sItemNo = this._normalizePOItemNumber(oItem?.orderItemNumber);
@@ -2370,6 +2469,8 @@ class GatePassService extends cds.ApplicationService {
       }
 
       const oMaterialDocItem = {
+        // Unique Line-ID per item — mandatory when item-level YY1 custom fields are used (SAP KBA 3488329 / MM_IM_ODATA_API_MDOC/027)
+        MaterialDocumentLine: String(aMaterialDocItems.length + 1).padStart(4, '0'),
         GoodsMovementType: '101',
         GoodsMovementRefDocType: 'B',
         PurchaseOrder: (oOpenItem.purchaseOrder || sPONumber).toString(),
@@ -2379,10 +2480,19 @@ class GatePassService extends cds.ApplicationService {
         Plant: sPlant,
         StorageLocation: sStorageLocation
       };
+      if (sGateEntryNumber) {
+        oMaterialDocItem.YY1_GatePassNo_MMI = sGateEntryNumber;
+      }
       const sMaterial = (oOpenItem.material || '').toString().trim();
       if (sMaterial) {
         oMaterialDocItem.Material = sMaterial;
       }
+      const sGoodsRecipient = (oItem?.goodsRecipient || oSavedItem.goodsRecipient || '').toString().trim();
+      if (sGoodsRecipient) {
+        oMaterialDocItem.GoodsRecipientName = sGoodsRecipient;
+      }
+      // GdsMvtExtAmtInCoCodeCrcy intentionally not sent: not supported for GoodsMovementType 101
+      // (MM_IM_ODATA_API_MDOC/011). Local currency amount stays display-only in the GatePass app.
       const sBatch = (oItem?.batch || oSavedItem.batch || '').toString().trim();
       const sDateOfManufactureInput = oItem?.dateOfManufacture || oSavedItem.dateOfManufacture;
       const sDateOfManufacture = this._normalizeDate(sDateOfManufactureInput);
@@ -2476,6 +2586,228 @@ class GatePassService extends cds.ApplicationService {
       }
       throw e;
     }
+  }
+
+  /**
+   * Function: Gate Pass operational report (read-only; joins Gate Entry + items + Gate Exit + GRN)
+   */
+  async _onGetGatePassReport(req) {
+    const oLog = cds.log('gatepass-report');
+    const aEntryRows = await this._getAllGateEntriesRaw();
+    const aEntries = (aEntryRows || [])
+      .map((oRow) => {
+        const oMapped = this._mapGateEntryFromCBO(oRow);
+        if (oMapped) {
+          // Supplier invoice no persisted on the CBO invoiceNo field (inward); outward uses referenceNumber
+          oMapped.invoiceNumberRaw = (oRow?.invoiceNo || oRow?.InvoiceNo || '').toString().trim();
+        }
+        return oMapped;
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.entryDate || '').localeCompare(a.entryDate || ''))
+      .slice(0, 2000);
+
+    const mExitByEntryID = {};
+    const aExitRows = await this._listCBOEntities('GateExit', { _queryOptions: { $top: 5000 } }, 5000);
+    (aExitRows || []).forEach((oRow) => {
+      const oExit = this._mapGateExitFromCBO(oRow);
+      if (!oExit || !oExit.gateEntry_ID) {
+        return;
+      }
+      const oExisting = mExitByEntryID[oExit.gateEntry_ID];
+      if (!oExisting || (oExit.exitDate || '') >= (oExisting.exitDate || '')) {
+        mExitByEntryID[oExit.gateEntry_ID] = oExit;
+      }
+    });
+
+    // GR postings per distinct inward PO reference (warn-and-continue per PO)
+    const aPONumbers = [...new Set(aEntries
+      .filter((oEntry) => (oEntry.movementType || '').toString().trim().toUpperCase() !== 'O')
+      .map((oEntry) => (oEntry.referenceNumber || '').toString().trim())
+      .filter(Boolean))];
+    // Two maps: exact entry match via YY1_GatePassNo_MMI (posted by this app),
+    // plus PO+item fallback for GRs posted before the field existed.
+    const mGRByPOItem = {};
+    const mGRByGEItem = {};
+    for (const sPONumber of aPONumbers) {
+      try {
+        const aGRRows = await this._fetchGRRowsByPO(sPONumber, req);
+        aGRRows.forEach((oGR) => {
+          if (!oGR.purchaseOrderItem) {
+            return;
+          }
+          if (oGR.gateEntryNumber) {
+            const sGEKey = `${oGR.gateEntryNumber}::${oGR.purchaseOrderItem}`;
+            (mGRByGEItem[sGEKey] = mGRByGEItem[sGEKey] || []).push(oGR);
+          } else {
+            const sKey = `${sPONumber}::${oGR.purchaseOrderItem}`;
+            (mGRByPOItem[sKey] = mGRByPOItem[sKey] || []).push(oGR);
+          }
+        });
+      } catch (e) {
+        oLog.warn(`GR lookup failed for PO ${sPONumber}. Report rows will show blank GRN fields. ${e.message}`);
+      }
+    }
+    const mGRMaps = { byPOItem: mGRByPOItem, byGEItem: mGRByGEItem };
+
+    const aRows = [];
+    aEntries.forEach((oEntry) => {
+      aRows.push(...this._buildGatePassReportRows(oEntry, mExitByEntryID[oEntry.ID] || null, mGRMaps));
+    });
+    return { rowsJson: JSON.stringify(aRows) };
+  }
+
+  // GR postings for a PO with GRN document numbers (report only; does not change the GR tracker fetch)
+  // Note: A_MaterialDocumentItem has no PostingDate property in this system version —
+  // posting dates are joined from A_MaterialDocumentHeader per distinct material document.
+  async _fetchGRRowsByPO(poNumber, req) {
+    const sPONumber = (poNumber || '').toString().trim();
+    if (!sPONumber) {
+      return [];
+    }
+    const sPath = this._buildS4Path(
+      this._getGRServiceRoot(),
+      `/A_MaterialDocumentItem?$filter=PurchaseOrder eq '${this._escapeODataString(sPONumber)}'&$select=PurchaseOrder,PurchaseOrderItem,MaterialDocument,MaterialDocumentYear,QuantityInEntryUnit,StorageLocation,GoodsMovementType,DebitCreditCode,YY1_GatePassNo_MMI&$top=5000&$format=json`
+    );
+    const oGRService = await this._getGRService();
+    const oRemoteClient = req ? oGRService.tx(req) : oGRService;
+    const oResponse = await oRemoteClient.send({
+      method: 'GET',
+      path: sPath
+    });
+    const aRows = this._extractODataV2Results(oResponse)
+      .map((oRow) => {
+        const nQty = this._resolveSignedMaterialDocumentQuantity(oRow);
+        if (!nQty) {
+          return null;
+        }
+        return {
+          purchaseOrderItem: this._normalizePOItemNumber(this._pickFirstValue(oRow, ['PurchaseOrderItem', 'purchaseOrderItem']) || ''),
+          gateEntryNumber: (this._pickFirstValue(oRow, ['YY1_GatePassNo_MMI', 'yy1GatePassNoMmi']) || '').toString().trim(),
+          grnNumber: (this._pickFirstValue(oRow, ['MaterialDocument', 'materialDocument']) || '').toString(),
+          grnYear: (this._pickFirstValue(oRow, ['MaterialDocumentYear', 'materialDocumentYear']) || '').toString(),
+          grnPostingDate: null,
+          grnStorageLocation: (this._pickFirstValue(oRow, ['StorageLocation', 'storageLocation']) || '').toString(),
+          grnQuantity: nQty
+        };
+      })
+      .filter(Boolean);
+
+    const aDocKeys = [...new Set(aRows.map((oRow) => `${oRow.grnNumber}::${oRow.grnYear}`))]
+      .filter((sKey) => !sKey.startsWith('::'));
+    if (aDocKeys.length) {
+      try {
+        const sHeaderFilter = aDocKeys.map((sKey) => {
+          const [sDoc, sYear] = sKey.split('::');
+          return `(MaterialDocument eq '${this._escapeODataString(sDoc)}' and MaterialDocumentYear eq '${this._escapeODataString(sYear)}')`;
+        }).join(' or ');
+        const sHeaderPath = this._buildS4Path(
+          this._getGRServiceRoot(),
+          `/A_MaterialDocumentHeader?$filter=${sHeaderFilter}&$select=MaterialDocument,MaterialDocumentYear,PostingDate&$top=5000&$format=json`
+        );
+        const oHeaderResponse = await oRemoteClient.send({
+          method: 'GET',
+          path: sHeaderPath
+        });
+        const mPostingByDoc = {};
+        this._extractODataV2Results(oHeaderResponse).forEach((oHeader) => {
+          const sDoc = (this._pickFirstValue(oHeader, ['MaterialDocument', 'materialDocument']) || '').toString();
+          const sYear = (this._pickFirstValue(oHeader, ['MaterialDocumentYear', 'materialDocumentYear']) || '').toString();
+          mPostingByDoc[`${sDoc}::${sYear}`] = this._fromODataV2Date(this._pickFirstValue(oHeader, ['PostingDate', 'postingDate']) || null);
+        });
+        aRows.forEach((oRow) => {
+          oRow.grnPostingDate = mPostingByDoc[`${oRow.grnNumber}::${oRow.grnYear}`] || null;
+        });
+      } catch (e) {
+        cds.log('gatepass-report').warn(`GR header posting-date lookup failed for PO ${sPONumber}. GRN posting dates will be blank. ${e.message}`);
+      }
+    }
+    return aRows;
+  }
+
+  _buildGatePassReportRows(oEntry, oExit, mGRMaps) {
+    const bIsOutward = (oEntry.movementType || '').toString().trim().toUpperCase() === 'O';
+    const sReferenceNumber = (oEntry.referenceNumber || '').toString().trim();
+    const aItems = this._parseMaterialItemsJson(oEntry.materialItemsJson);
+    const fnBaseRow = () => ({
+      gateEntryNumber: oEntry.gateEntryNumber || '',
+      entryDate: oEntry.entryDate || null,
+      purchasingDocNo: bIsOutward ? '' : sReferenceNumber,
+      poItem: '',
+      plant: oEntry.plant || '',
+      materialNumber: '',
+      materialDescription: '',
+      poQuantity: null,
+      poUnit: '',
+      vendorCode: oEntry.partyNumber || '',
+      vendorName: oEntry.partyName || '',
+      invoiceNumber: bIsOutward ? sReferenceNumber : (oEntry.invoiceNumberRaw || ''),
+      invoiceDate: oEntry.invoiceDate || null,
+      vehicleNumber: oEntry.vehicleNumber || '',
+      vehicleType: oEntry.vehicleType || '',
+      transportNo: oEntry.transporterNumber || '',
+      transportName: oEntry.transporterName || '',
+      lrNumber: oEntry.lrNumber || '',
+      challanQty: null,
+      balanceQty: null,
+      grnNumber: '',
+      grnYear: '',
+      grnPostingDate: null,
+      grnStorageLocation: '',
+      grnQuantity: null,
+      gateExitNumber: oExit?.gateExitNumber || '',
+      exitDate: oExit?.exitDate || null
+    });
+
+    if (!aItems.length) {
+      return [fnBaseRow()];
+    }
+    const aRows = [];
+    aItems.forEach((oItem) => {
+      const nPOQty = this._toNumber(oItem.quantity);
+      const sItemNo = this._normalizePOItemNumber(oItem.orderItemNumber);
+      const sGEKey = sItemNo && oEntry.gateEntryNumber ? `${oEntry.gateEntryNumber}::${sItemNo}` : '';
+      const sPOKey = bIsOutward || !sReferenceNumber || !sItemNo
+        ? ''
+        : `${sReferenceNumber}::${sItemNo}`;
+      // Prefer exact gate-entry match (YY1_GatePassNo_MMI on the material doc item);
+      // fall back to PO+item for GRs posted before that field existed
+      let aGRRows = (sGEKey && mGRMaps.byGEItem[sGEKey]) || [];
+      if (!aGRRows.length && sPOKey) {
+        aGRRows = mGRMaps.byPOItem[sPOKey] || [];
+      }
+      // Balance Qty = PO Qty - Challan Qty
+      const nChallanQty = this._toNumber(oItem.challanQuantity);
+      const nBalance = Number.isFinite(nPOQty)
+        ? Math.round((nPOQty - (Number.isFinite(nChallanQty) ? nChallanQty : 0)) * 1000) / 1000
+        : null;
+      const fnItemRow = () => ({
+        ...fnBaseRow(),
+        poItem: (oItem.orderItemNumber || '').toString(),
+        plant: (oItem.plant || oEntry.plant || ''),
+        materialNumber: oItem.materialCode || '',
+        materialDescription: oItem.materialDescription || '',
+        poQuantity: nPOQty,
+        poUnit: oItem.unitOfMeasure || '',
+        challanQty: nChallanQty,
+        balanceQty: nBalance
+      });
+      if (!aGRRows.length) {
+        aRows.push(fnItemRow());
+        return;
+      }
+      aGRRows.forEach((oGR) => {
+        aRows.push({
+          ...fnItemRow(),
+          grnNumber: oGR.grnNumber,
+          grnYear: oGR.grnYear,
+          grnPostingDate: oGR.grnPostingDate,
+          grnStorageLocation: oGR.grnStorageLocation || (oItem.storageLocation || ''),
+          grnQuantity: oGR.grnQuantity
+        });
+      });
+    });
+    return aRows;
   }
 
   // Helper: Fetch PO details using source strategy (auto/live/mock).
@@ -2640,7 +2972,7 @@ class GatePassService extends cds.ApplicationService {
 
     const sEscapedPONumber = this._escapeODataString(sPONumber);
     const sHeaderPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrder('${sEscapedPONumber}')?$select=PurchaseOrder,Supplier`);
-    const sItemsPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrderItem?$filter=PurchaseOrder eq '${sEscapedPONumber}'&$select=PurchaseOrder,PurchaseOrderItem,Material,PurchaseOrderItemText,OrderQuantity,Plant,PurchaseOrderQuantityUnit,PurchaseRequisition,PurchaseRequisitionItem`);
+    const sItemsPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrderItem?$filter=PurchaseOrder eq '${sEscapedPONumber}'&$select=PurchaseOrder,PurchaseOrderItem,Material,PurchaseOrderItemText,OrderQuantity,Plant,PurchaseOrderQuantityUnit,PurchaseRequisition,PurchaseRequisitionItem,NetPriceAmount,OrderPriceUnit`);
     const sSupplierAddressPath = this._buildS4Path(sPOServiceRoot, `/PurchaseOrder('${sEscapedPONumber}')/_SupplierAddress?$select=AddresseeFullName,OrganizationName1,OrganizationName2`);
     const oPOService = await this._getPOService();
     const oRemoteClient = req ? oPOService.tx(req) : oPOService;
@@ -2949,6 +3281,8 @@ class GatePassService extends cds.ApplicationService {
       material_no: this._pickFirstValue(oItem, ['Material', 'material']) || '',
       material_description: this._pickFirstValue(oItem, ['PurchaseOrderItemText', 'purchaseOrderItemText', 'MaterialName', 'materialDescription']) || '',
       po_qty: this._pickFirstValue(oItem, ['OrderQuantity', 'orderQuantity', 'RequestedQuantity', 'requestedQuantity']),
+      net_price_amount: this._toNumber(this._pickFirstValue(oItem, ['NetPriceAmount', 'netPriceAmount'])),
+      order_price_unit: this._toNumber(this._pickFirstValue(oItem, ['OrderPriceUnit', 'orderPriceUnit'])),
       purchase_requisition: this._pickFirstValue(oItem, ['PurchaseRequisition', 'purchaseRequisition']) || '',
       purchase_requisition_item: this._pickFirstValue(oItem, ['PurchaseRequisitionItem', 'purchaseRequisitionItem']) || '',
       purchase_order_quantity_unit: this._pickFirstValue(oItem, ['PurchaseOrderQuantityUnit', 'purchaseOrderQuantityUnit']) || '',
@@ -3100,7 +3434,7 @@ class GatePassService extends cds.ApplicationService {
     const sEscapedInvoice = this._escapeODataString(sInvoiceNumber);
     const sPath = this._buildS4Path(
       sServiceRoot,
-      `/BillingDocument('${sEscapedInvoice}')?$select=BillingDocument,BillingDocumentType,BillingDocumentDate,SoldToParty,PayerParty,YY1_Customer_Name_BDH,YY1_VehicleNo_BDH,TransactionCurrency,TotalNetAmount,TotalGrossAmount,TotalTaxAmount&$expand=_Item($select=BillingDocumentItem,Product,BillingDocumentItemText,BillingQuantity,BillingQuantityUnitSAPCode,NetAmount,Plant,StorageLocation)&$format=json`
+      `/BillingDocument('${sEscapedInvoice}')?$select=BillingDocument,BillingDocumentType,BillingDocumentDate,DocumentReferenceID,SoldToParty,PayerParty,YY1_Customer_Name_BDH,YY1_VehicleNo_BDH,TransactionCurrency,TotalNetAmount,TotalGrossAmount,TotalTaxAmount&$expand=_Item($select=BillingDocumentItem,Product,BillingDocumentItemText,BillingQuantity,BillingQuantityUnitSAPCode,NetAmount,Plant,StorageLocation,YY1_TRANSPORTER2_GSTIN_BDI)&$format=json`
     );
     const oBillingService = await this._getBillingService();
     const oRemoteClient = req ? oBillingService.tx(req) : oBillingService;
@@ -3118,9 +3452,12 @@ class GatePassService extends cds.ApplicationService {
     if (!oRoot || typeof oRoot !== 'object') {
       return null;
     }
+    // DocumentReferenceID is a BillingDocument header field (Reference / Delivery No) — stamp it on every line item
+    const sDeliveryNumber = (this._pickFirstValue(oRoot, ['DocumentReferenceID', 'documentReferenceID']) || '').toString().trim();
     const aRawItems = this._normalizeCollection(oRoot._Item || oRoot.to_Item || oRoot.BillingDocumentItem);
     const aMappedItems = aRawItems.map((oItem, iIndex) => ({
       itemNumber: iIndex + 1,
+      deliveryNumber: sDeliveryNumber,
       materialCode: this._pickFirstValue(oItem, ['Product', 'product']) || '',
       materialDescription: this._pickFirstValue(oItem, ['BillingDocumentItemText', 'billingDocumentItemText']) || '',
       quantity: this._toNumber(this._pickFirstValue(oItem, ['BillingQuantity', 'billingQuantity'])) || 0,
@@ -3135,15 +3472,21 @@ class GatePassService extends cds.ApplicationService {
     const sPayerParty = this._pickFirstValue(oRoot, ['PayerParty', 'payerParty']) || '';
     const sPartyNumber = sSoldToParty || sPayerParty || '';
     const sPlantFromItems = (aMappedItems.find((oItem) => (oItem.plant || '').toString().trim()) || {}).plant || '';
+    // YY1_TRANSPORTER2_GSTIN_BDI is item-level — take the first non-empty value as the transporter number
+    const sTransporterNumber = (aRawItems
+      .map((oItem) => this._pickFirstValue(oItem, ['YY1_TRANSPORTER2_GSTIN_BDI', 'yy1Transporter2GstinBdi']))
+      .find((v) => (v || '').toString().trim()) || '').toString().trim();
     return {
       billingDocument: this._pickFirstValue(oRoot, ['BillingDocument', 'billingDocument']) || invoiceNumber,
       billingDocumentType: this._pickFirstValue(oRoot, ['BillingDocumentType', 'billingDocumentType']) || '',
+      deliveryNumber: sDeliveryNumber,
       invoiceDate: this._normalizeDate(this._pickFirstValue(oRoot, ['BillingDocumentDate', 'billingDocumentDate']) || null),
       soldToParty: sSoldToParty,
       payerParty: sPayerParty,
       customerNumber: sPartyNumber,
       customerName: this._pickFirstValue(oRoot, ['YY1_Customer_Name_BDH', 'yy1CustomerNameBdh']) || '',
       vehicleNumber: this._pickFirstValue(oRoot, ['YY1_VehicleNo_BDH', 'yy1VehicleNoBdh']) || '',
+      transporterNumber: sTransporterNumber,
       transactionCurrency: this._pickFirstValue(oRoot, ['TransactionCurrency', 'transactionCurrency']) || '',
       totalNetAmount: this._toNumber(this._pickFirstValue(oRoot, ['TotalNetAmount', 'totalNetAmount'])),
       totalGrossAmount: this._toNumber(this._pickFirstValue(oRoot, ['TotalGrossAmount', 'totalGrossAmount'])),
@@ -3265,6 +3608,10 @@ class GatePassService extends cds.ApplicationService {
     if (!data.vehicleNumber && sVehicleNumber) {
       data.vehicleNumber = sVehicleNumber;
     }
+    const sSnapshotTransporterNumber = (snapshot.transporterNumber || '').toString().trim();
+    if (!data.transporterNumber && sSnapshotTransporterNumber) {
+      data.transporterNumber = sSnapshotTransporterNumber;
+    }
     if (!data.invoiceDate && sInvoiceDate) {
       data.invoiceDate = sInvoiceDate;
     }
@@ -3272,11 +3619,12 @@ class GatePassService extends cds.ApplicationService {
       data.invoiceValue = data.referenceNumber;
     }
     if (Array.isArray(snapshot.items) && snapshot.items.length) {
-      data.materialItemsJson = JSON.stringify(snapshot.items.map((oItem, iIndex) => ({
+      data.materialItemsJson = JSON.stringify(this._compactMaterialItemsForCBO(snapshot.items.map((oItem, iIndex) => ({
         itemNumber: iIndex + 1,
+        deliveryNumber: (oItem.deliveryNumber || snapshot.deliveryNumber || '').toString(),
         materialCode: oItem.materialCode || '',
         materialDescription: oItem.materialDescription || '',
-        quantity: this._toNumber(oItem.quantity) || 0,
+        quantity: Number(oItem.quantity || 0),
         challanQuantity: null,
         unitOfMeasure: oItem.unitOfMeasure || '',
         orderItemNumber: oItem.orderItemNumber || '',
@@ -3284,7 +3632,7 @@ class GatePassService extends cds.ApplicationService {
         storageLocation: oItem.storageLocation || null,
         batch: '',
         dateOfManufacture: null
-      })));
+      })), (data.movementType || '').toString().trim().toUpperCase() === 'O'));
     }
   }
 

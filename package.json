@@ -30,11 +30,9 @@
   "cds": {
     "requires": {
       "db": {
-        "[development]": {
-          "kind": "sqlite",
-          "credentials": {
-            "database": "gatepass.db"
-          }
+        "kind": "sqlite",
+        "credentials": {
+          "database": "gatepass.db"
         }
       },
       "purchaseorder_api": {

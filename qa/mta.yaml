@@ -10,15 +10,11 @@ build-parameters:
       commands:
         - cd .. && npm ci
         - cd .. && npx cds build --production
+        # cds build is incremental and can leave gen/srv/srv/*.js stale — copy current sources explicitly
         - cp ../srv/gatepass-service.js ../gen/srv/srv/gatepass-service.js
         - mkdir -p ../gen/srv/srv/mock
         - cp ../srv/mock/po-mock-data.json ../gen/srv/srv/mock/po-mock-data.json
 modules:
-  - name: gatepass-db-deployer-test
-    type: hdb
-    path: ../gen/db
-    requires:
-      - name: gatepass-db-test
   - name: gatepass-srv-test
     type: nodejs
     path: ../gen/srv
@@ -34,7 +30,6 @@ modules:
         properties:
           url: ${default-url}
     requires:
-      - name: gatepass-db-test
       - name: gatepass-uaa-test
       - name: gatepass-destination-test
 
@@ -77,11 +72,6 @@ modules:
       build-result: .
       supported-platforms: []
 resources:
-  - name: gatepass-db-test
-    type: com.sap.xs.hdi-container
-    parameters:
-      service: hana
-      service-plan: hdi-shared
   - name: gatepass-uaa-test
     type: org.cloudfoundry.managed-service
     parameters:
